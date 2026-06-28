@@ -853,22 +853,30 @@ const Recap = {
 
 /* ================== DEEPSEEK ================== */
 const DeepSeek = {
-  async chat(system, user, apiKey, timeoutMs){
+  async chat(system, user, apiKey, opts){
+    const o = opts||{};
     const ctl = new AbortController();
-    const timer = setTimeout(()=>ctl.abort(), timeoutMs||30000);
+    const timer = setTimeout(()=>ctl.abort(), o.timeoutMs||30000);
     try{
+      const body = {
+        model:"deepseek-v4-flash",
+        messages:[{role:"system",content:system},{role:"user",content:user}],
+        temperature:o.temperature!=null?o.temperature:0.3,
+        thinking:{type:"disabled"},
+        max_tokens:o.max_tokens||800
+      };
+      if(o.json) body.response_format={type:"json_object"};
       const res = await fetch("https://api.deepseek.com/v1/chat/completions",{
         method:"POST",
         headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
-        body: JSON.stringify({
-          model:"deepseek-chat",
-          messages:[{role:"system",content:system},{role:"user",content:user}],
-          temperature:0.3,
-          response_format:{type:"json_object"}
-        }),
+        body: JSON.stringify(body),
         signal: ctl.signal
       });
-      if(!res.ok) throw new Error(`DeepSeek ${res.status}`);
+      if(!res.ok){
+        let detail="";
+        try{ const j=await res.json(); detail=j&&j.error&&j.error.message?": "+j.error.message:""; }catch(_){}
+        throw new Error(`DeepSeek ${res.status}${detail}`);
+      }
       const data = await res.json();
       return data.choices[0].message.content;
     } catch(e){
@@ -876,10 +884,10 @@ const DeepSeek = {
       throw e;
     } finally { clearTimeout(timer); }
   },
-  async chatWithRetry(system, user, apiKey, retries=1){
+  async chatWithRetry(system, user, apiKey, opts, retries=1){
     let lastErr;
     for(let i=0;i<=retries;i++){
-      try{ return await DeepSeek.chat(system,user,apiKey); }
+      try{ return await DeepSeek.chat(system,user,apiKey,opts); }
       catch(e){ lastErr=e; await new Promise(r=>setTimeout(r,500)); }
     }
     throw lastErr;
@@ -897,7 +905,7 @@ const DeepSeek = {
 }
 
 Никогда не добавляй пояснений вне JSON. Оценивай калории и белок по описанным продуктам консервативно, указывай confidence "low" если описание расплывчатое.`;
-    const raw = await DeepSeek.chatWithRetry(system, text, apiKey);
+    const raw = await DeepSeek.chatWithRetry(system, text, apiKey, {json:true});
     let parsed;
     try{ parsed = JSON.parse(raw); }
     catch(e){ throw new Error("Не удалось разобрать ответ модели"); }
