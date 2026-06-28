@@ -132,9 +132,10 @@ label{display:block;margin:12px 0 4px;color:var(--muted);font-size:14px}
 .meal-item{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
 .meal-item:last-child{border-bottom:0}
 .meal-item .what{flex:1}
-.meal-item .what .name{font-size:14px;font-weight:500}
-.meal-item .what .grams{font-size:11px;color:var(--muted)}
-.meal-item .what .macros{font-size:11px;color:var(--muted);margin-top:2px}
+.meal-item .what .name{font-size:15px;font-weight:600;line-height:1.2}
+.meal-item .what .grams{font-size:13px;color:var(--muted);margin-top:2px}
+.meal-item .what .macros{font-size:11px;color:var(--muted);margin-top:4px}
+.meal-advice{font-size:14px;line-height:1.5}
 .meal-item button{flex:0 0 auto;padding:6px 8px;font-size:16px}
 .macro-mini{display:inline-block;padding:1px 6px;background:var(--bg3);border-radius:4px;font-size:10px;margin-right:4px}
 .macro-mini.p{color:var(--acc)} .macro-mini.f{color:var(--warn)} .macro-mini.c{color:var(--acc2)}
@@ -895,15 +896,38 @@ const MealPlanner = {
   },
 
   toText(scaled, food){
+    // Возвращает ТОЛЬКО описание порции без граммов (UI показывает граммы отдельной строкой)
     const n = scaled.grams / food.gr;
-    let text;
-    if(n >= 1.5 && food.unit && food.unit!=="г"){
-      const rounded = Math.round(n);
-      text = `${rounded} ${food.unit}${rounded===1?"":"(а/ов)"} (${scaled.grams}г)`;
-    } else {
-      text = `${scaled.grams}г`;
-    }
-    return text;
+    const rounded = Math.max(1, Math.round(n));
+    if(!food.unit) return `${scaled.grams}г`;
+    const u = food.unit;
+    // Спецслучай: если получилось сильно дробное число (< 0.5) — показать граммы
+    if(rounded === 0) return `${scaled.grams}г`;
+    // "г" — не переводим, оставляем граммы
+    if(u === "г") return `${scaled.grams}г`;
+    // Спецслучай: для жидкостей 1 стакан = одна нормальная порция
+    const oneOk = ["стакан","кусок","ломтик","горсть","ложка","белок","порция","шт","кубик"];
+    if(!oneOk.includes(u)) return `${scaled.grams}г`;
+    // Склонения для русского: 1 → ед, 2-4 → немн, 5+ → мн
+    const plural = (one, few, many) => {
+      const m10 = rounded % 10, m100 = rounded % 100;
+      if(m10===1 && m100!==11) return one;
+      if(m10>=2 && m10<=4 && (m100<10 || m100>=20)) return few;
+      return many;
+    };
+    const FORMS = {
+      "\u0448\u0442":["\u0448\u0442\u0443\u043a\u0430","\u0448\u0442\u0443\u043a\u0438","\u0448\u0442\u0443\u043a"],
+      "\u0448\u0442\u0443\u043a\u0430":["\u0448\u0442\u0443\u043a\u0430","\u0448\u0442\u0443\u043a\u0438","\u0448\u0442\u0443\u043a"],
+      "\u0441\u0442\u0430\u043a\u0430\u043d":["\u0441\u0442\u0430\u043a\u0430\u043d","\u0441\u0442\u0430\u043a\u0430\u043d\u0430","\u0441\u0442\u0430\u043a\u0430\u043d\u043e\u0432"],
+      "\u043a\u0443\u0441\u043e\u043a":["\u043a\u0443\u0441\u043e\u043a","\u043a\u0443\u0441\u043a\u0430","\u043a\u0443\u0441\u043a\u043e\u0432"],
+      "\u043b\u043e\u043c\u0442\u0438\u043a":["\u043b\u043e\u043c\u0442\u0438\u043a","\u043b\u043e\u043c\u0442\u0438\u043a\u0430","\u043b\u043e\u043c\u0442\u0438\u043a\u043e\u0432"],
+      "\u0433\u043e\u0440\u0441\u0442\u044c":["\u0433\u043e\u0440\u0441\u0442\u044c","\u0433\u043e\u0440\u0441\u0442\u0438","\u0433\u043e\u0440\u0441\u0442\u0435\u0439"],
+      "\u043b\u043e\u0436\u043a\u0430":["\u043b\u043e\u0436\u043a\u0430","\u043b\u043e\u0436\u043a\u0438","\u043b\u043e\u0436\u0435\u043a"],
+      "\u0431\u0435\u043b\u043e\u043a":["\u0431\u0435\u043b\u043e\u043a","\u0431\u0435\u043b\u043a\u0430","\u0431\u0435\u043b\u043a\u043e\u0432"],
+      "\u043f\u043e\u0440\u0446\u0438\u044f":["\u043f\u043e\u0440\u0446\u0438\u044f","\u043f\u043e\u0440\u0446\u0438\u0438","\u043f\u043e\u0440\u0446\u0438\u0439"]
+    };
+    const fm = FORMS[u] || FORMS["\u0448\u0442\u0443\u043a\u0430"];
+    return rounded+" "+plural(fm[0], fm[1], fm[2]);
   },
 
   chooseProtein(eligible, mealKey, favorites){
@@ -930,14 +954,14 @@ const MealPlanner = {
     const targetP = Math.round(targets.protein * mealStruct.kcalPct);
     const items = [];
     let p=0, f=0, c=0, kcal=0;
-    const maxGrams = mealStruct.key==="snack" ? 300 : 500;
+    const maxGrams = mealStruct.key==="snack" ? 200 : 350;
     let usedProteinIds = new Set();
 
     // 1. Источник белка (целевая порция)
     const protein = MealPlanner.chooseProtein(eligible, mealStruct.key, favorites);
     if(protein){
       usedProteinIds.add(protein.id);
-      const needP = Math.max(8, targetP * 0.8);
+      const needP = Math.max(8, targetP * 0.9);
       const scaled = MealPlanner.pickGrams(protein, needP, maxGrams);
       items.push({...scaled, text: MealPlanner.toText(scaled, protein)});
       p += scaled.p; f += scaled.f; c += scaled.c; kcal += scaled.kcal;
@@ -955,32 +979,16 @@ const MealPlanner = {
         p += scaled.p; f += scaled.f; c += scaled.c; kcal += scaled.kcal;
       }
     }
-    // 3. Если белок недобран — добавляем второй источник белка (молочный/растительный для разнообразия)
-    if(p < targetP * 0.9 && mealStruct.key!=="snack"){
-      const secondProtein = eligible.filter(f=>
-        (f.group==="dairy"||f.group==="plant_protein"||f.group==="protein") &&
-        f.tags.includes(mealStruct.key) && !usedProteinIds.has(f.id)
-      );
-      if(secondProtein.length){
-        const sp = secondProtein[Math.floor(Math.random()*secondProtein.length)];
-        const remainP = Math.max(5, targetP - p);
-        const scaled = MealPlanner.pickGrams(sp, remainP*0.7, 250);
-        if(scaled.kcal + kcal <= targetKcal * 1.15){
-          items.push({...scaled, text: MealPlanner.toText(scaled, sp)});
-          p += scaled.p; f += scaled.f; c += scaled.c; kcal += scaled.kcal;
-        }
-      }
-    }
-    // 4. Овощи (для основных приёмов) — низкокалорийная загрузка
+    // 3. Овощи (для обеда/ужина) — низкокалорийная загрузка, макс 3 элемента в обеде/ужине
     if(mealStruct.key==="lunch" || mealStruct.key==="dinner"){
       const veg = MealPlanner.chooseVeg(eligible, mealStruct.key);
       if(veg){
-        const scaled = MealPlanner.scale(veg, 150);
+        const scaled = MealPlanner.scale(veg, 120);
         items.push({...scaled, text: MealPlanner.toText(scaled, veg)});
         p += scaled.p; f += scaled.f; c += scaled.c; kcal += scaled.kcal;
       }
     }
-    // 5. Если всё ещё недобор ккал — добавим полезные жиры (орехи для завтрака/перекуса)
+    // 4. Полезные жиры для завтрака/перекуса (орехи, авокадо) — если недобор
     if(kcal < targetKcal * 0.85 && (mealStruct.key==="breakfast" || mealStruct.key==="snack")){
       const fatFood = eligible.filter(f=>f.group==="fats" && f.tags.includes(mealStruct.key));
       if(fatFood.length){
@@ -1257,16 +1265,12 @@ const DeepSeek = {
     if(parsed.rpe_workout!=null) parsed.rpe_workout = Number(parsed.rpe_workout);
     return parsed;
   },
-  // Роль 3: обёртка уже посчитанного меню в живой текст + альтернативы (цифры не считает!)
+  // Роль 3: короткий совет-напутствие к плану дня (цифры не считает!)
   async menuNarrator(planArr, targets, prefs, apiKey){
-    const system = `Ты — заботливый диетолог-наставник. Тебе передают подробный план питания на день с уже посчитанными граммами и КБЖУ по каждому приёму пищи. Перепиши этот план в тёплый, читаемый русский текст: короткое напутствие, затем по каждому приёму пищи — что съесть, в каком количестве (граммы или понятные порции вроде "6 яиц", "2 куска хлеба"), и зачем (белок/энергия). В конце — одна бодрая фраза. Не меняй цифры — не придумывай граммы или ккал, используй только те, что я передал. Если в предпочтениях указано "избегает" — не упоминай эти продукты в тексте как вариант.`;
-    const mealsText = planArr.map(m=>{
-      const items = m.items.map(it=>`${it.text} (${it.grams}г, Б${it.p}/Ж${it.f}/У${it.c}, ${it.kcal}ккал)`).join(", ");
-      return `${m.label}: ${items} — итого ${m.totals.kcal}ккал, Б${m.totals.p}/Ж${m.totals.f}/У${m.totals.c}`;
-    }).join("\n");
-    const prefText = prefs && prefs.avoid ? `\nИзбегает: ${prefs.avoid}.` : "";
-    const userMsg = `Цель на день — К:${targets.kcal} Б:${targets.protein} Ж:${targets.fat} У:${targets.carb}.${prefText}\n\nПлан:\n${mealsText}`;
-    return await DeepSeek.chatWithRetry(system, userMsg, apiKey, {max_tokens:1000});
+    const system = `Ты — заботливый диетолог-наставник. Тебе передают цели КБЖУ на день и предпочтения пользователя. Дай ОДНО короткое тёплое напутствие на день: 2-3 предложения, что-то вдохновляющее и практичное. ОБЯЗАТЕЛЬНО: без markdown-разметки (никаких **, __, #, _жирный_, *курсив*), без нумерованных/маркированных списков, без перечисления продуктов из плана (это пользователь видит в карточках), без оценочных суждений по весу. Тон — тёплый, без давления.`;
+    const prefText = prefs && prefs.avoid ? ` Избегает: ${prefs.avoid}.` : "";
+    const userMsg = `Цели на день: К:${targets.kcal} Б:${targets.protein} Ж:${targets.fat} У:${targets.carb}.${prefText}`;
+    return await DeepSeek.chatWithRetry(system, userMsg, apiKey, {max_tokens:500});
   },
   async dailyAdvice(ctx, apiKey){
     const system = `Ты — заботливый помощник по питанию. Тебе передают сегодняшние показатели и целевые значения, посчитанные отдельно (не пересчитывай их сам). Дай один короткий персональный совет на 2–3 предложения на русском языке: что скорректировать сегодня или завтра. Не используй конкретные цифры калорий/белка кроме тех, что тебе передали — не придумывай новые целевые значения. Тон — тёплый, без давления и без оценочных суждений по поводу веса.`;
@@ -1782,6 +1786,27 @@ document.getElementById("diaryManual").onclick=()=>showDiaryForm(null, true);
 document.getElementById("tmplAdd").onclick=()=>MealTemplates.add();
 
 /* ================== PROAL FUNCTIONS ================== */
+// Превращает ответ DeepSeek (может содержать **жирный**, _курсив_, переносы) в HTML с лёгкой разметкой
+function formatAdvice(text){
+  if(!text) return "";
+  // экранируем, потом точечно возвращаем разрешённые теги
+  let t = text;
+  // **жирный** → <strong>
+  t = t.replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>");
+  // __жирный__ → <strong>
+  t = t.replace(/__([^_\n]+?)__/g, "<strong>$1</strong>");
+  // *курсив* → <em> (только одиночные, не пересекаются с **)
+  t = t.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, "$1<em>$2</em>");
+  // _курсив_ → <em>
+  t = t.replace(/(^|[^_])_([^_\n]+?)_(?!_)/g, "$1<em>$2</em>");
+  // убираем оставшиеся ** и __ (на всякий случай)
+  t = t.replace(/\*\*/g,"").replace(/__/g,"");
+  // \n\n → параграфы, \n → <br>
+  const paragraphs = t.split(/\n{2,}/).map(p=>p.trim()).filter(Boolean);
+  if(paragraphs.length<=1) return paragraphs[0]||""; // без переносов — одна строка
+  return paragraphs.map(p=>`<p style="margin:0 0 8px;line-height:1.5">${p.replace(/\n/g,"<br>")}</p>`).join("");
+}
+
 function renderMeal(){
   const p = Store.get("profile");
   const cache = Store.get("meal_plan_cache");
@@ -1809,7 +1834,7 @@ function renderMeal(){
 
   if(cache.date===todayStr() && cache.plan && cache.plan.length){
     // есть план на сегодня
-    if(cache.text) adviceEl.innerHTML = `<h3 style="margin-bottom:6px">Совет диетолога</h3>${cache.text}`;
+    if(cache.text) adviceEl.innerHTML = `<h3 style="margin-bottom:6px">Совет от DeepSeek</h3><div class="meal-advice">${formatAdvice(cache.text)}</div>`;
     else adviceEl.innerHTML = "";
     renderMealPlan(cache.plan, planEl);
     adaptBtn.style.display = eaten.kcal>0 ? "" : "none";
@@ -1828,13 +1853,15 @@ function renderMealPlan(planArr, container){
     const itemsHTML = meal.items.map((it,idx)=>`
       <div class="meal-item">
         <div class="what">
-          <div class="name">${escapeHtml(it.text||it.name)}</div>
+          <div class="name">${escapeHtml(it.name||it.text)}</div>
+          <div class="grams">${escapeHtml(it.text)}</div>
           <div class="macros"><span class="macro-mini p">Б${it.p}</span><span class="macro-mini f">Ж${it.f}</span><span class="macro-mini c">У${it.c}</span> · ${it.kcal}ккал</div>
         </div>
         <button class="ghost" data-meal="${meal.key}" data-idx="${idx}" style="font-size:14px;padding:4px 10px">↻</button>
       </div>
     `).join("");
-    card.innerHTML = `<h2>${meal.label}<span class="totals">${meal.totals.kcal}ккал · Б${meal.totals.p}/Ж${meal.totals.f}/У${meal.totals.c}</span></h2>${itemsHTML}`;
+    const emoji = {breakfast:"🥐", lunch:"🥗", snack:"🍎", dinner:"🍽"};
+    card.innerHTML = `<h2>${emoji[meal.key]||""} ${meal.label}<span class="totals">${meal.totals.kcal}ккал · Б${meal.totals.p}/Ж${meal.totals.f}/У${meal.totals.c}</span></h2>${itemsHTML}`;
     container.appendChild(card);
   }
   // кнопки замены
@@ -1855,13 +1882,14 @@ function showReplacePopover(result){
   const pop = document.getElementById("replacePopover");
   const body = document.getElementById("replaceBody");
   const oldI = result.oldItem;
-  let html = `<h2 style="margin-bottom:4px">Заменить «${escapeHtml(oldI.text||oldI.name)}»</h2>
-    <div class="muted small" style="margin-bottom:10px">Было: ${oldI.grams}г · Б${oldI.p}/Ж${oldI.f}/У${oldI.c} · ${oldI.kcal}ккал</div>
+  let html = `<h2 style="margin-bottom:4px">Заменить «${escapeHtml(oldI.name||oldI.text)}»</h2>
+    <div class="muted small" style="margin-bottom:10px">Было: ${escapeHtml(oldI.text)} · ${oldI.grams}г · Б${oldI.p}/Ж${oldI.f}/У${oldI.c} · ${oldI.kcal}ккал</div>
     <div class="small muted" style="margin-bottom:6px">Альтернативы с близким КБЖУ:</div>`;
   result.variants.forEach((v,i)=>{
     html += `<div class="meal-item" style="cursor:pointer" data-idx="${i}">
       <div class="what">
-        <div class="name">${escapeHtml(v.name)} — ${escapeHtml(v.text)}</div>
+        <div class="name">${escapeHtml(v.name)}</div>
+        <div class="grams">${escapeHtml(v.text)}</div>
         <div class="macros"><span class="macro-mini p">Б${v.p}</span><span class="macro-mini f">Ж${v.f}</span><span class="macro-mini c">У${v.c}</span> · ${v.kcal}ккал</div>
       </div>
       <button class="primary" style="font-size:12px;padding:6px 10px">Выбрать</button>
