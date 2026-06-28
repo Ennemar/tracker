@@ -1,0 +1,15 @@
+## Заметки разработчика / временные файлы
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+node_modules/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+
+## Файлы редактора
+*.swp
+*.swo
+*~

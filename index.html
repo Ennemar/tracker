@@ -1,0 +1,1392 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Трекер</title>
+<meta name="theme-color" content="#0f1115">
+<meta name="description" content="Личный фитнес-трекер с DeepSeek-интеграцией">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Трекер">
+<style>
+:root{
+  --bg:#0f1115; --bg2:#161a21; --bg3:#1d222b; --fg:#e9edf3; --muted:#8b94a3;
+  --acc:#6ee7b7; --acc2:#9f7aea; --warn:#f59e0b; --bad:#ef4444; --border:#272d38;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{padding-bottom:72px;max-width:680px;margin:0 auto;min-height:100vh}
+h1,h2,h3{margin:0 0 8px;font-weight:600}
+h1{font-size:22px}h2{font-size:18px}h3{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+button{font:inherit;color:var(--fg);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;cursor:pointer;transition:.15s}
+button:hover{background:#262c37;border-color:#3a4453}
+button.primary{background:var(--acc);color:#08231a;border-color:transparent;font-weight:600}
+button.primary:hover{background:#5dd3a8}
+button.ghost{background:transparent}
+button.danger{background:var(--bad);color:#fff;border-color:transparent}
+button:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 12px;width:100%}
+textarea{resize:vertical;min-height:90px}
+label{display:block;margin:12px 0 4px;color:var(--muted);font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{flex:1;min-width:0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.tag{display:inline-block;padding:2px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--muted)}
+.tag.ok{color:var(--acc);border-color:var(--acc)}
+.tag.warn{color:var(--warn);border-color:var(--warn)}
+.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--bg2);border-top:1px solid var(--border);max-width:680px;margin:0 auto;z-index:50}
+.tabs button{flex:1;border:0;border-radius:0;background:transparent;color:var(--muted);padding:14px 0;font-size:12px}
+.tabs button.active{color:var(--acc)}
+.screen{display:none;padding:16px 14px 8px}
+.screen.active{display:block}
+.streak-dot{width:100%;aspect-ratio:1;border-radius:6px;background:var(--bg3);border:1px solid var(--border)}
+.streak-dot.done{background:var(--acc);border-color:transparent}
+.streak-dot.rest{background:#2a2030}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border);padding:10px 16px;border-radius:10px;z-index:100;max-width:90%;opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+#player{position:fixed;inset:0;background:var(--bg);z-index:200;display:none;flex-direction:column;padding:16px;max-width:680px;margin:0 auto}
+#player.active{display:flex}
+.step-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:20px}
+.ring-wrap{position:relative;width:240px;height:240px}
+.ring-wrap svg{transform:rotate(-90deg)}
+.ring-wrap .num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:56px;font-weight:700}
+.combo{background:var(--bg2);border:1px solid var(--acc);border-radius:12px;padding:18px;font-size:20px;color:var(--acc);text-align:center;max-width:90%}
+.form-line{display:flex;align-items:center;gap:8px;margin:6px 0}
+.form-line label{margin:0;flex:0 0 140px}
+.ledger{display:grid;grid-template-columns:80px 1fr auto;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
+.ledger.done{color:var(--acc)}
+.hidden{display:none!important}
+.warn{color:var(--warn)}
+@media(max-width:380px){body{font-size:15px}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:none;align-items:flex-end;justify-content:center;padding:16px}
+.modal.active{display:flex}
+.modal .card{max-width:680px;width:100%;margin:0}
+.precount{position:fixed;inset:0;background:var(--bg);z-index:250;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;max-width:680px;margin:0 auto}
+.precount.active{display:flex}
+.precount .num{font-size:140px;font-weight:700;color:var(--acc)}
+.precount .label{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<nav class="screen-tabs" id="tabNav">
+  <div class="tabs">
+    <button data-tab="today" class="active">Сегодня</button>
+    <button data-tab="diary">Дневник</button>
+    <button data-tab="progress">Прогресс</button>
+    <button data-tab="settings">Настройки</button>
+  </div>
+</nav>
+
+<!-- TODAY -->
+<main id="screen-today" class="screen active">
+  <h1 id="todayDate"></h1>
+  <div id="todaySchedule" class="card"></div>
+  <div id="todayVacuum" class="card hidden"></div>
+  <div id="todayStreak" class="card"></div>
+  <div id="todayAdvice" class="card"></div>
+</main>
+
+<!-- DIARY -->
+<main id="screen-diary" class="screen">
+  <h1>Дневник</h1>
+  <div class="card">
+    <label for="diaryText">Что съел / как самочувствие / как тренировка</label>
+    <textarea id="diaryText" placeholder="Напр.: овсянка с бананом, курица с рисом, наелись тяжело; после тренировки колено побаливало"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="diaryParse" class="primary">Распознать</button>
+      <button id="diaryManual" class="ghost">Ручной ввод</button>
+    </div>
+    <div id="diaryStatus" class="small muted" style="margin-top:8px"></div>
+  </div>
+  <div id="diaryForm" class="card hidden"></div>
+  <div>
+    <h3>Сегодня</h3>
+    <div id="diaryTodayList"></div>
+  </div>
+  <div>
+    <h3>Последние записи</h3>
+    <div id="diaryList"></div>
+  </div>
+</main>
+
+<!-- PROGRESS -->
+<main id="screen-progress" class="screen">
+  <h1>Прогресс</h1>
+  <div class="card">
+    <h3>Статус программы</h3>
+    <div id="progState"></div>
+  </div>
+  <div class="card">
+    <div class="row" style="align-items:center;margin-bottom:8px">
+      <h2 style="margin:0;flex:1">Вес</h2>
+      <div class="row" style="flex:0;gap:6px">
+        <input id="weightInput" type="number" step="0.1" placeholder="кг" style="width:90px">
+        <button id="weightAdd">+</button>
+      </div>
+    </div>
+    <canvas id="weightChart" width="600" height="200" style="width:100%;height:auto"></canvas>
+    <div id="weightStats" class="small muted" style="margin-top:6px"></div>
+  </div>
+  <div class="card hidden" id="measCard">
+    <div class="row" style="align-items:center;margin-bottom:8px">
+      <h2 style="margin:0;flex:1">Замеры</h2>
+      <div class="row" style="flex:0;gap:6px">
+        <input id="waistInput" type="number" placeholder="талия" style="width:90px">
+        <input id="hipsInput" type="number" placeholder="бёдра" style="width:90px">
+        <button id="measAdd">+</button>
+      </div>
+    </div>
+    <canvas id="measChart" width="600" height="160" style="width:100%;height:auto"></canvas>
+  </div>
+  <div class="card">
+    <h3>Стрик тренировок (4 недели)</h3>
+    <div id="progStreak" class="cal-grid"></div>
+  </div>
+</main>
+
+<!-- SETTINGS -->
+<main id="screen-settings" class="screen">
+  <h1>Настройки</h1>
+  <div class="card">
+    <h2>Профиль</h2>
+    <label>Рост, см</label><input id="pHeight" type="number" placeholder="180">
+    <label>Возраст</label><input id="pAge" type="number" placeholder="полных лет">
+    <label>Текущий вес, кг</label><input id="pWeight" type="number" step="0.1" placeholder="63">
+    <label>Уровень активности</label>
+    <select id="pAct">
+      <option value="1.2">Малоподвижный (1.2)</option>
+      <option value="1.4" selected>4 трен/нед + прогулки (1.4)</option>
+      <option value="1.6">Тяжёлые трен + работа (1.6)</option>
+      <option value="1.8">Очень высокая (1.8)</option>
+    </select>
+    <label>Дефицит, ккал <span class="muted">(рекомпозиция 200)</span></label>
+    <select id="pDef"><option value="0">0</option><option value="150">150</option><option value="200" selected>200</option><option value="250">250</option><option value="300">300</option></select>
+    <label>DeepSeek API ключ</label><input id="pKey" type="password" placeholder="sk-...">
+    <label class="form-line" style="display:flex;align-items:center;margin-top:12px"><input id="pPrecount" type="checkbox" style="width:auto;margin-right:8px"> Отсчёт 3-2-1 перед таймером</label>
+    <button id="saveProfile" class="primary" style="margin-top:14px">Сохранить</button>
+    <div id="profileCalc" class="small muted" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <h2>Данные</h2>
+    <div class="row">
+      <button id="exportBtn">Экспорт JSON</button>
+      <button id="importBtn" class="ghost">Импорт JSON</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json" class="hidden">
+  </div>
+  <div class="card">
+    <h2>Заметка плана</h2>
+    <div class="small">Упоминаются проблемы с сосудами в теле — перед стартом интенсивного кардио/бокса свериться с врачом о допустимой нагрузке. При тяжести в ногах, долго не падающем пульсе — снижать интенсивность. Боль в суставе (не мышечная) — упражнение сразу заменять на щадящий вариант.</div>
+  </div>
+  <div id="devReset" class="card hidden">
+    <h2 style="color:var(--bad)">Dev</h2>
+    <button id="resetProgram" class="danger">Сбросить program_state</button>
+    <button id="clearAll" class="ghost" style="margin-top:6px">Стереть ВСЕ данные</button>
+  </div>
+  <div class="small muted" style="text-align:center;padding:8px" id="ver">v0.1</div>
+</main>
+
+<!-- PLAYER -->
+<div id="player">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <button id="plPrev" class="ghost">← Пред</button>
+    <div id="plTitle" class="small muted" style="text-align:center"></div>
+    <button id="plExit" class="ghost">Закрыть</button>
+  </div>
+  <div class="step-center" id="plBody"></div>
+  <div id="plFooter" style="min-height:60px"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Onboarding modal -->
+<div class="modal" id="onboardModal">
+  <div class="card">
+    <h2>Добро пожаловать!</h2>
+    <div class="muted small" style="margin-bottom:10px">Заполните профиль — это нужно для расчёта калорий и белка. DeepSeek-ключ можно добавить позже в настройках.</div>
+    <label>Рост, см</label><input id="obHeight" type="number" placeholder="180">
+    <label>Возраст</label><input id="obAge" type="number" placeholder="полных лет">
+    <label>Текущий вес, кг</label><input id="obWeight" type="number" step="0.1" placeholder="63">
+    <div class="row">
+      <div><label>Активность</label><select id="obAct">
+        <option value="1.2">Малоподвижный</option>
+        <option value="1.4" selected>4 трен/нед</option>
+        <option value="1.6">Тяжёлые трен</option>
+      </select></div>
+      <div><label>Дефицит, ккал</label><select id="obDef">
+        <option value="0">0</option><option value="150">150</option><option value="200" selected>200</option><option value="250">250</option><option value="300">300</option>
+      </select></div>
+    </div>
+    <label style="margin-top:8px">DeepSeek API ключ <span class="muted">(опц.)</span></label><input id="obKey" type="password" placeholder="sk-...">
+    <button id="obSave" class="primary" style="margin-top:12px;width:100%">Начать</button>
+  </div>
+</div>
+
+<!-- Pre-stage 3-2-1 overlay -->
+<div class="precount" id="precount">
+  <div class="num" id="precountNum">3</div>
+  <div class="label" id="precountLabel">Приготовьтесь</div>
+</div>
+
+<script>
+"use strict";
+
+/* ================== STORAGE ================== */
+const KEYS = ["profile","program_state","workout_log","weight_log","measurements_log","diary_entries","advice_cache","daily_log"];
+const DEFAULTS = {
+  profile:{ height_cm:180, age:null, weight_start_kg:63, activity_multiplier:1.4, deficit_kcal:200, deepseek_api_key:"", vacuum_streak:0, play_precount:true },
+  program_state:{ current_week:1, week_start_date:null, tempo_unlocked:false, resistance_unlocked:false, boxing_tier:0, boxing_recovery_pass_streak:0, pain_flag_streak:0, pain_flags_this_week:0, completed_days:[] },
+  workout_log:[],
+  weight_log:[],
+  measurements_log:[],
+  diary_entries:[],
+  advice_cache:{ date:null, text:null },
+  daily_log:[]
+};
+const Store = {
+  get(k){
+    try{
+      const v=localStorage.getItem("tracker:"+k);
+      if(v==null) return structuredClone(DEFAULTS[k]);
+      const parsed=JSON.parse(v);
+      const def=DEFAULTS[k];
+      // migration: shallow-merge scalar/object defaults с сохранённым объектом
+      if(def && typeof def==="object" && !Array.isArray(def) && parsed && typeof parsed==="object"){
+        return Object.assign(structuredClone(def), parsed);
+      }
+      return parsed;
+    }catch(e){ return structuredClone(DEFAULTS[k]); }
+  },
+  set(k,v){ localStorage.setItem("tracker:"+k, JSON.stringify(v)); },
+  raw(){ const out={}; KEYS.forEach(k=>out[k]=Store.get(k)); return out; },
+  replace(d){
+    // валидация: принимаем только ключи из whitelist
+    for(const k of Object.keys(d)){ if(!KEYS.includes(k)) return false; }
+    KEYS.forEach(k=>{ if(d[k]!==undefined) Store.set(k,d[k]); });
+    return true;
+  },
+  wipeAll(){ KEYS.forEach(k=>localStorage.removeItem("tracker:"+k)); }
+};
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function nowISO(){ return new Date().toISOString(); }
+function daysAgoStr(n){ const d=new Date(); d.setDate(d.getDate()-n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+/* ================== PROGRAM DATA ================== */
+// Дни недели: 0=Вс ... 6=Сб (JS getDay). Расписание: Пн-A,Вт-Актив,Ср-B,Чт-Отд,Пт-C,Сб-D,Вс-Прогул
+const WEEK_SCHEDULE = { 1:"A", 2:"active_rest", 3:"B", 4:"rest", 5:"C", 6:"D", 0:"walk" };
+const DAY_NAMES = ["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"];
+const PROGRAM_DATA = {
+  A:{ id:"A", title:"Ягодицы + бокс", duration:"~65 мин" },
+  B:{ id:"B", title:"Верх тела + бокс", duration:"~60 мин" },
+  C:{ id:"C", title:"Ноги + ягодицы + кор", duration:"~55 мин" },
+  D:{ id:"D", title:"Общая, жиросжигающая", duration:"~55 мин" }
+};
+const ACTIVITY_LABELS = { rest:"День отдыха", active_rest:"Активный отдых", walk:"Прогулка 30–60 мин" };
+
+const BOX_COMBO = {
+  A:["Джеб","Джеб-кросс","Джеб-кросс-хук","Уклоны вправо-влево","Апперкоты","Передвижения вперёд-назад","Свободная комбинация"],
+  B:["Джеб","Джеб-кросс","Хуки","Уклоны","Свободные комбинации","Работа ног"],
+  C:["Джеб","Передвижения вперёд-назад","Свободная работа в среднем темпе","Апперкоты"],
+  D:["Джеб","Джеб-кросс","Хуки","Апперкоты","Уклоны","Работа ног","Свободная комбинация","Шаги в стороны с ударами"]
+};
+
+// Шаблоны тренировок. buildSteps разворачивает суперсеты/раунды в плоский массив.
+// Маркеры прогрессии: tempo_hint (неделя2 — медленный негатив), resistance_hint (неделя3 — +резинка/вес)
+function workoutTemplate(id){
+  const warmup = [
+    {kind:"message",text:"Разминка — 8 минут"},
+    {kind:"timer",label:"Круговые плеч",seconds:40},
+    {kind:"timer",label:"Вращения таза",seconds:40},
+    {kind:"timer",label:"Махи ногами вперёд",seconds:40},
+    {kind:"timer",label:"Махи в стороны",seconds:40},
+    {kind:"timer",label:"Наклоны корпуса",seconds:40},
+    {kind:"timer",label:"Высокие колени",seconds:40},
+    {kind:"timer",label:"Ягодичный мост без паузы",seconds:40},
+    {kind:"timer",label:"Медленные приседания",seconds:40}
+  ];
+  const stretch = [{kind:"message",text:"Растяжка — 5 минут"}];
+
+  if(id==="A"){
+    return [
+      ...warmup,
+      {kind:"message",text:"Кардио-бокс — 15 мин (40 работа / 20 отдых, 15 раундов)"},
+      {kind:"boxing",rounds:15,work:40,rest:20},
+      {kind:"message",text:"Суперсет 1 — приседания + ягодичный мост, 3 круга"},
+      {kind:"superset",rounds:3,rest:60,items:[
+        {kind:"reps",label:"Приседания",reps:"15",tempo_hint:true},
+        {kind:"reps",label:"Ягодичный мост",reps:"20",note:"пауза 2 сек вверху"}
+      ]},
+      {kind:"message",text:"Суперсет 2 — болгарские выпады + отведение назад, 3 круга"},
+      {kind:"superset",rounds:3,rest:60,items:[
+        {kind:"reps",label:"Болгарский выпад",reps:"10 на каждую",note:"задняя нога на диване",tempo_hint:true,resistance_hint:true},
+        {kind:"reps",label:"Отведение ноги назад",reps:"15 на каждую",resistance_hint:true}
+      ]},
+      {kind:"message",text:"Суперсет 3 — отведение в сторону + пульсации в мостике, 3 круга"},
+      {kind:"superset",rounds:3,rest:45,items:[
+        {kind:"reps",label:"Отведение ноги в сторону",reps:"15 на каждую",resistance_hint:true},
+        {kind:"reps",label:"Пульсации в мостике",reps:"20"}
+      ]},
+      {kind:"message",text:"Кор — 7 минут"},
+      {kind:"reps",label:"Dead Bug",reps:"3×12"},
+      {kind:"timer",label:"Боковая планка (сторона 1)",seconds:25},
+      {kind:"timer",label:"Боковая планка (сторона 2)",seconds:25},
+      ...stretch
+    ];
+  }
+  if(id==="B"){
+    return [
+      ...warmup,
+      {kind:"message",text:"Кардио-бокс — 18 мин (раунды 2 мин работа / 1 мин отдых, 6 раундов)"},
+      {kind:"boxing",rounds:6,work:120,rest:60},
+      {kind:"message",text:"Суперсет 1 — отжимания + планка, 3 круга"},
+      {kind:"superset",rounds:3,rest:60,items:[
+        {kind:"reps",label:"Отжимания (от стены/пола)",reps:"10–12",tempo_hint:true},
+        {kind:"timer",label:"Планка",seconds:30}
+      ]},
+      {kind:"message",text:"Суперсет 2 — обратные отжимания + супермен, 3 круга"},
+      {kind:"superset",rounds:3,rest:60,items:[
+        {kind:"reps",label:"Обратные отжимания от дивана",reps:"12",tempo_hint:true},
+        {kind:"reps",label:"Супермен",reps:"15"}
+      ]},
+      {kind:"message",text:"Кор — 7 минут"},
+      {kind:"reps",label:"Скручивания",reps:"3×20"},
+      {kind:"timer",label:"Велосипед",seconds:30},
+      {kind:"timer",label:"Велосипед (повтор)",seconds:30},
+      {kind:"timer",label:"Велосипед (повтор)",seconds:30},
+      ...stretch
+    ];
+  }
+  if(id==="C"){
+    return [
+      ...warmup,
+      {kind:"message",text:"Силовой блок — 25 мин"},
+      {kind:"message",text:"Суперсет 1 — сумо + мост одной ногой, 3 круга"},
+      {kind:"superset",rounds:3,rest:60,items:[
+        {kind:"reps",label:"Приседания сумо",reps:"15",tempo_hint:true,resistance_hint:true},
+        {kind:"reps",label:"Ягодичный мост одной ногой",reps:"12 на каждую"}
+      ]},
+      {kind:"message",text:"Суперсет 2 — выпады назад + отведение назад, 3 круга"},
+      {kind:"superset",rounds:3,rest:45,items:[
+        {kind:"reps",label:"Выпады назад",reps:"10 на каждую",tempo_hint:true,resistance_hint:true},
+        {kind:"reps",label:"Отведение ноги назад",reps:"18",resistance_hint:true}
+      ]},
+      {kind:"message",text:"Суперсет 3 — отведение в сторону + пульсации, 2 круга"},
+      {kind:"superset",rounds:2,rest:45,items:[
+        {kind:"reps",label:"Отведение ноги в сторону",reps:"18",resistance_hint:true},
+        {kind:"reps",label:"Пульсации в мостике",reps:"25"}
+      ]},
+      {kind:"message",text:"Кардио-бокс — 12 мин (3 раунда × 3 мин / 1 мин отдых, средний темп)"},
+      {kind:"boxing",rounds:3,work:180,rest:60,calm:true},
+      {kind:"message",text:"Кор / планка — 5 минут"},
+      {kind:"timer",label:"Планка",seconds:45},
+      {kind:"rest",seconds:15},
+      {kind:"timer",label:"Планка",seconds:45},
+      {kind:"rest",seconds:15},
+      {kind:"timer",label:"Планка",seconds:45},
+      ...stretch
+    ];
+  }
+  if(id==="D"){
+    return [
+      ...warmup,
+      {kind:"message",text:"Интервальный бокс — 20 мин (45 работа / 15 отдых)"},
+      {kind:"boxing",rounds:26,work:45,rest:15},
+      {kind:"message",text:"Силовой круг — 3 круга, отдых 60 сек между кругами"},
+      {kind:"superset",rounds:3,rest:60,items:[
+        {kind:"reps",label:"Приседания",reps:"15",tempo_hint:true,resistance_hint:true},
+        {kind:"reps",label:"Ягодичный мост",reps:"20"},
+        {kind:"reps",label:"Отжимания",reps:"10",tempo_hint:true},
+        {kind:"timer",label:"Планка",seconds:45}
+      ]},
+      ...stretch
+    ];
+  }
+  throw new Error("unknown workout "+id);
+}
+
+/* ================== buildSteps: разворот суперсетов/раундов в плоский массив ================== */
+const BOXING_TIER_MAX = 5;
+const BOXING_REST_MIN = 10;
+
+function applyHints(step, state){
+  if(step.kind!=="reps") return step;
+  let note = step.note? String(step.note) : "";
+  if(state.tempo_unlocked && step.tempo_hint && !note.toLowerCase().includes("медленн")){
+    note = (note? note+" · ":"")+"медленный спуск 3–4 сек";
+  }
+  if(state.resistance_unlocked && step.resistance_hint && !note.toLowerCase().includes("резинк")&&!note.toLowerCase().includes("вес")){
+    note = (note? note+" · ":"")+"+ резинка/бутылка (отягощение)";
+  }
+  return { ...step, note: note||undefined };
+}
+
+function buildSteps(id, state){
+  const tmpl = workoutTemplate(id);
+  const out = [];
+  for(const node of tmpl){
+    if(node.kind==="superset"){
+      for(let r=0;r<node.rounds;r++){
+        const items = node.items.map(it=>{
+          const s = applyHints(it, state);
+          return { ...s, _supersetRound: r+1, _supersetTotal: node.rounds };
+        });
+        out.push(...items);
+        if(r<node.rounds-1) out.push({ kind:"rest", seconds:node.rest, _label:"Отдых между кругами" });
+      }
+    }
+    else if(node.kind==="boxing"){
+      const pool = BOX_COMBO[id];
+      const restSec = node.calm? node.rest : Math.max(BOXING_REST_MIN, node.rest - state.boxing_tier*15);
+      for(let r=0;r<node.rounds;r++){
+        out.push({
+          kind:"timer",
+          label: node.calm? "Бокс — средний темп" : "Бокс — работа",
+          seconds: node.work,
+          sound: true,
+          comboPool: pool,
+          _roundLabel:`Раунд ${r+1}/${node.rounds}`
+        });
+        if(r<node.rounds-1) out.push({ kind:"rest", seconds: restSec, _label:"Отдых между раундами" });
+      }
+    }
+    else if(node.kind==="reps"){
+      out.push(applyHints(node, state));
+    }
+    else {
+      out.push(node);
+    }
+  }
+  return out;
+}
+
+function workoutHasBoxing(id){ return id==="A"||id==="B"||id==="C"||id==="D"; }
+
+/* ================== PROGRESSION STATE MACHINE ================== */
+const Progression = {
+  startWeekIfNeeded(state){
+    if(!state.week_start_date) state.week_start_date = todayStr();
+  },
+  // вызывается после завершения тренировки: записать день, проверить конец недели
+  completeWorkout(state, workoutId, rpe, painFlag){
+    Progression.startWeekIfNeeded(state);
+    const d = todayStr();
+    if(!state.completed_days.includes(d)) state.completed_days.push(d);
+    if(painFlag){
+      state.pain_flags_this_week = (state.pain_flags_this_week||0)+1;
+      state.pain_flag_streak += 1;
+    } else {
+      state.pain_flag_streak = 0;
+    }
+    Progression.maybeAdvanceWeek(state);
+    return state;
+  },
+  maybeAdvanceWeek(state){
+    const start = new Date(state.week_start_date);
+    const now = new Date(todayStr());
+    const days = Math.floor((now-start)/86400000);
+    if(days>=7){
+      // конец недели — разблокировать следующий уровень, если боль позволяет
+      const painCount = state.pain_flags_this_week||0;
+      const nextWeek = state.current_week+1;
+      if(state.current_week===1 && painCount<2){
+        state.tempo_unlocked = true;
+        state.current_week = nextWeek;
+      } else if(state.current_week===2 && painCount<2){
+        state.resistance_unlocked = true;
+        state.current_week = nextWeek;
+      } else if(state.current_week===3 && painCount<2){
+        state.current_week = nextWeek; // combine
+      } else if(state.current_week>=4){
+        state.current_week = nextWeek; // продолжаем, новые уровни не открываются
+      } else {
+        // неделя повторяется на том же уровне
+        // не сбрасываем unlocked флаги
+      }
+      state.week_start_date = todayStr();
+      state.pain_flags_this_week = 0;
+    }
+    return state;
+  },
+  boxRecoveryTest(state, ok){
+    if(ok){
+      state.boxing_recovery_pass_streak = (state.boxing_recovery_pass_streak||0)+1;
+      if(state.boxing_recovery_pass_streak>=2 && state.boxing_tier<BOXING_TIER_MAX){
+        state.boxing_tier += 1;
+        state.boxing_recovery_pass_streak = 0;
+      }
+    } else {
+      state.boxing_recovery_pass_streak = 0;
+    }
+    return state;
+  },
+  painFlagDecision(state){ return (state.pain_flags_this_week||0)>=2; },
+  weekName(n){
+    return ["Техника","Темп","Отягощение","Совмещение"][Math.min(n-1,3)] || `Неделя ${n}`;
+  }
+};
+
+/* ================== CALCULATION (§5) ================== */
+const Calc = {
+  bmr(profile){
+    const w = Calc.currentWeightKg(profile) || profile.weight_start_kg;
+    const h = profile.height_cm||180;
+    const age = profile.age||30;
+    return 10*w + 6.25*h - 5*age - 161;
+  },
+  tdee(profile){ return Calc.bmr(profile)*(profile.activity_multiplier||1.4); },
+  targetKcal(profile){ return Math.round(Calc.tdee(profile)-(profile.deficit_kcal||0)); },
+  targetProtein(profile){
+    const w = Calc.currentWeightKg(profile) || profile.weight_start_kg;
+    return Math.round(w*1.75);
+  },
+  currentWeightKg(profile){
+    const wl = Store.get("weight_log");
+    if(!wl.length) return profile.weight_start_kg;
+    return wl[wl.length-1].weight_kg;
+  },
+  weightTrend7d(){
+    const wl = Store.get("weight_log").slice().sort((a,b)=>a.date.localeCompare(b.date));
+    if(wl.length<14) return null;
+    const last = wl.slice(-7).map(x=>x.weight_kg);
+    const prev = wl.slice(-14,-7).map(x=>x.weight_kg);
+    const avg=a=>a.reduce((s,x)=>s+x,0)/a.length;
+    return +(avg(last)-avg(prev)).toFixed(2);
+  },
+  diaryTotalsToday(){
+    const d = todayStr();
+    const list = Store.get("diary_entries").filter(e=>e.date.startsWith(d));
+    let kcal=0, prot=0;
+    for(const e of list){
+      const f = (e.parsed && (e.parsed.food_estimate||{}))||{};
+      if(f.calories) kcal += f.calories;
+      if(f.protein_g) prot += f.protein_g;
+    }
+    return { kcal:Math.round(kcal), protein:Math.round(prot) };
+  },
+  workoutDoneToday(){
+    const d = todayStr();
+    return Store.get("workout_log").some(w=>w.date.startsWith(d));
+  }
+};
+
+function vacuumStreak(){
+  const dl = Store.get("daily_log");
+  const done = (date)=> dl.some(x=>x.date===date && x.vacuum_done);
+  let count=0;
+  // если сегодня не отмечено — начинаем цепочку с вчера (стрик не обрывается до конца дня)
+  let i = done(todayStr()) ? 0 : 1;
+  for(;; i++){
+    if(done(daysAgoStr(i))) count++; else break;
+  }
+  return count;
+}
+
+/* ================== DEEPSEEK ================== */
+const DeepSeek = {
+  async chat(system, user, apiKey, timeoutMs){
+    const ctl = new AbortController();
+    const timer = setTimeout(()=>ctl.abort(), timeoutMs||30000);
+    try{
+      const res = await fetch("https://api.deepseek.com/v1/chat/completions",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
+        body: JSON.stringify({
+          model:"deepseek-chat",
+          messages:[{role:"system",content:system},{role:"user",content:user}],
+          temperature:0.3,
+          response_format:{type:"json_object"}
+        }),
+        signal: ctl.signal
+      });
+      if(!res.ok) throw new Error(`DeepSeek ${res.status}`);
+      const data = await res.json();
+      return data.choices[0].message.content;
+    } catch(e){
+      if(e.name==="AbortError") throw new Error("DeepSeek timeout (>30сек)");
+      throw e;
+    } finally { clearTimeout(timer); }
+  },
+  async chatWithRetry(system, user, apiKey, retries=1){
+    let lastErr;
+    for(let i=0;i<=retries;i++){
+      try{ return await DeepSeek.chat(system,user,apiKey); }
+      catch(e){ lastErr=e; await new Promise(r=>setTimeout(r,500)); }
+    }
+    throw lastErr;
+  },
+  async parseDiary(text, apiKey){
+    const system = `Ты — парсер дневниковых записей о питании и тренировках. Получаешь свободный текст от пользователя на русском языке. Возвращай ТОЛЬКО валидный JSON, без преамбулы, без markdown-разметки, без комментариев. Если в тексте нет информации для какого-то поля — используй null.
+
+Формат:
+{
+  "food_estimate": { "calories": number|null, "protein_g": number|null, "confidence": "low"|"medium"|"high" },
+  "mood": "good"|"neutral"|"bad"|null,
+  "pain_flags": ["joint_knee"|"joint_shoulder"|"joint_other"|"none"],
+  "rpe_workout": number|null,
+  "notes_summary": string
+}
+
+Никогда не добавляй пояснений вне JSON. Оценивай калории и белок по описанным продуктам консервативно, указывай confidence "low" если описание расплывчатое.`;
+    const raw = await DeepSeek.chatWithRetry(system, text, apiKey);
+    let parsed;
+    try{ parsed = JSON.parse(raw); }
+    catch(e){ throw new Error("Не удалось разобрать ответ модели"); }
+    if(!parsed || typeof parsed!=="object") throw new Error("Неверный формат");
+    // нормализуем
+    const f = parsed.food_estimate || (parsed.food_estimate={});
+    f.calories = f.calories==null?null:Number(f.calories);
+    f.protein_g = f.protein_g==null?null:Number(f.protein_g);
+    if(!["low","medium","high"].includes(f.confidence)) f.confidence="low";
+    if(!["good","neutral","bad"].includes(parsed.mood)) parsed.mood=null;
+    if(!Array.isArray(parsed.pain_flags)) parsed.pain_flags=[];
+    if(parsed.rpe_workout!=null) parsed.rpe_workout = Number(parsed.rpe_workout);
+    return parsed;
+  },
+  async dailyAdvice(ctx, apiKey){
+    const system = `Ты — заботливый помощник по питанию. Тебе передают сегодняшние показатели и целевые значения, посчитанные отдельно (не пересчитывай их сам). Дай один короткий персональный совет на 2–3 предложения на русском языке: что скорректировать сегодня или завтра. Не используй конкретные цифры калорий/белка кроме тех, что тебе передали — не придумывай новые целевые значения. Тон — тёплый, без давления и без оценочных суждений по поводу веса.`;
+    const user = `Цель на день: ${ctx.target_kcal} ккал, ${ctx.target_protein}г белка.
+Фактически сегодня: ${ctx.actual_kcal} ккал, ${ctx.actual_protein}г белка (оценка по дневнику).
+Тренировка сегодня: ${ctx.workout_id||"день отдыха"}, выполнена: ${ctx.done?"да":"нет"}.
+Тренд веса за 7 дней: ${ctx.trend==null?"недостаточно данных":ctx.trend+" кг/нед"}.`;
+    return await DeepSeek.chatWithRetry(system, user, apiKey);
+  }
+};
+
+/* ================== UI HELPERS ================== */
+function toast(msg, ms=2600){
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>el.classList.remove("show"), ms);
+}
+function el(html){ const d=document.createElement("div"); d.innerHTML=html; return d.firstElementChild; }
+function renderScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active", s.id==="screen-"+name));
+  document.querySelectorAll("#tabNav .tabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===name));
+  if(name==="today") renderToday();
+  if(name==="diary") renderDiary();
+  if(name==="progress") renderProgress();
+  if(name==="settings") renderSettings();
+}
+
+/* ================== TODAY ================== */
+function renderToday(){
+  const d = new Date();
+  document.getElementById("todayDate").textContent = DAY_NAMES[d.getDay()]+", "+todayStr().slice(5);
+  const prog = Store.get("program_state");
+  const sched = WEEK_SCHEDULE[d.getDay()]||"rest";
+  const sch = document.getElementById("todaySchedule");
+  if(PROGRAM_DATA[sched]){
+    const info = PROGRAM_DATA[sched];
+    const done = Calc.workoutDoneToday();
+    const wname = Progression.weekName(prog.current_week);
+    sch.innerHTML = `
+      <h2>Тренировка ${info.id}: ${info.title}</h2>
+      <div class="muted small">${info.duration} · программа: неделя ${prog.current_week} (${wname}) · бокс tier ${prog.boxing_tier}</div>
+      <div style="margin-top:10px">
+        ${done? '<span class="tag ok">Сегодня выполнено</span>' : `<button id="startWorkout" class="primary">Начать</button>`}
+      </div>`;
+    if(!done){ document.getElementById("startWorkout").onclick=()=>openPlayer(info.id); }
+  } else {
+    sch.innerHTML = `<h2>${ACTIVITY_LABELS[sched]||sched}</h2>
+      <div class="muted small">${sched==="active_rest"?"Прогулка 40–60 мин + растяжка 15 мин.":sched==="walk"?"Спокойная прогулка.":"Полный отдых, восстановление."}</div>
+      ${Calc.workoutDoneToday()?'<span class="tag ok">День учтён</span>':''}`;
+  }
+
+  // vacuum
+  const vac = document.getElementById("todayVacuum");
+  const dl = Store.get("daily_log");
+  const todayDone = dl.some(x=>x.date===todayStr()&&x.vacuum_done);
+  const p = Store.get("profile");
+  const streak = vacuumStreak();
+  vac.classList.remove("hidden");
+  vac.innerHTML = `
+    <div class="row" style="align-items:center">
+      <div style="flex:1">
+        <h2 style="margin:0">Вакуум живота</h2>
+        <div class="muted small">Утро натощак, 3–4×15–20 сек. Серия: ${streak} дн.</div>
+      </div>
+      <button id="vacToggle" class="${todayDone?'':'primary'}">${todayDone?"Сделано ✓":"Отметить"}</button>
+    </div>`;
+  document.getElementById("vacToggle").onclick=()=>{
+    let arr = Store.get("daily_log");
+    let idx = arr.findIndex(x=>x.date===todayStr());
+    if(idx>=0){
+      arr[idx].vacuum_done = !arr[idx].vacuum_done;
+    } else {
+      arr.push({date:todayStr(), vacuum_done:true});
+    }
+    Store.set("daily_log", arr);
+    const pp = Store.get("profile");
+    pp.vacuum_streak = vacuumStreak();
+    Store.set("profile", pp);
+    renderToday();
+  };
+
+  // streak
+  const st = document.getElementById("todayStreak");
+  const completed = prog.completed_days||[];
+  let cells = '<div class="cal-grid">';
+  for(let i=27;i>=0;i--){
+    const ds = daysAgoStr(i);
+    const isDone = completed.some(x=>x===ds)||(Store.get("workout_log").some(w=>w.date.startsWith(ds)));
+    cells += `<div class="streak-dot ${isDone?'done':''}" title="${ds}"></div>`;
+  }
+  cells += '</div>';
+  st.innerHTML = `<h3>Стрик (28 дней)</h3>${cells}`;
+
+  // advice
+  const adv = document.getElementById("todayAdvice");
+  const cache = Store.get("advice_cache");
+  if(cache.text && cache.date===todayStr()){
+    adv.innerHTML = `<h3>Совет дня</h3><div>${cache.text}</div><div class="small muted" style="margin-top:8px"><button id="refreshAdvice" class="ghost">Обновить</button></div>`;
+    document.getElementById("refreshAdvice").onclick=()=>{ const c=Store.get("advice_cache"); c.date=null; Store.set("advice_cache",c); renderToday(); loadAdvice(); };
+  } else if(cache.text && cache.date){
+    adv.innerHTML = `<h3>Совет дня</h3><div>${cache.text}</div><div class="small muted">совет от ${cache.date}</div>`;
+  } else {
+    adv.innerHTML = `<h3>Совет дня</h3><div class="muted small">Заполните профиль и нажмите «обновить» — совет сгенерируется через DeepSeek.</div>
+      <button id="genAdvice" class="ghost" style="margin-top:8px">Сгенерировать</button>`;
+    document.getElementById("genAdvice").onclick=loadAdvice;
+  }
+}
+
+async function loadAdvice(){
+  const p = Store.get("profile");
+  if(!p.deepseek_api_key){ toast("Укажите DeepSeek API ключ в настройках"); return; }
+  toast("Обращаемся к DeepSeek…", 1200);
+  const schedId = WEEK_SCHEDULE[new Date().getDay()]||"rest";
+  const ctx = {
+    target_kcal: Calc.targetKcal(p),
+    target_protein: Calc.targetProtein(p),
+    actual_kcal: Calc.diaryTotalsToday().kcal,
+    actual_protein: Calc.diaryTotalsToday().protein,
+    workout_id: PROGRAM_DATA[schedId]? schedId : "день отдыха",
+    done: Calc.workoutDoneToday(),
+    trend: Calc.weightTrend7d()
+  };
+  try{
+    const txt = await DeepSeek.dailyAdvice(ctx, p.deepseek_api_key);
+    Store.set("advice_cache",{date:todayStr(),text:txt});
+    renderToday();
+  }catch(e){ toast("Не удалось получить совет: "+e.message, 4500); }
+}
+
+/* ================== PLAYER ================== */
+let Player = null;
+function openPlayer(workoutId){
+  const state = Store.get("program_state");
+  const steps = buildSteps(workoutId, state);
+  Player = { workoutId, steps, index:0, rpe:null, painFlag:false, recoveryAnswer:null, hasBox: workoutHasBoxing(workoutId) };
+  const info = PROGRAM_DATA[workoutId];
+  document.getElementById("plTitle").textContent = `${info.id} · ${info.title}`;
+  document.getElementById("player").classList.add("active");
+  initAudio();
+  renderPlayerStep();
+}
+function closePlayer(){ document.getElementById("player").classList.remove("active"); Player=null; }
+
+let AudioCtx = null;
+function initAudio(){
+  if(AudioCtx) return;
+  try{ AudioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+}
+function beep(freq=880, ms=120){
+  if(!AudioCtx) return;
+  try{
+    const o = AudioCtx.createOscillator(); const g = AudioCtx.createGain();
+    o.frequency.value=freq; o.connect(g); g.connect(AudioCtx.destination);
+    g.gain.value=0.12; o.start();
+    setTimeout(()=>{ o.stop(); }, ms);
+  }catch(e){}
+}
+
+let _precountTicker=null;
+function runPrecount(onDone){
+  const overlay=document.getElementById("precount");
+  const numEl=document.getElementById("precountNum");
+  const labelEl=document.getElementById("precountLabel");
+  let n=3;
+  numEl.textContent=n;
+  labelEl.textContent="Приготовьтесь…";
+  overlay.classList.add("active");
+  beep(620,90);
+  clearInterval(_precountTicker);
+  _precountTicker=setInterval(()=>{
+    n--;
+    if(n>0){ numEl.textContent=n; beep(620,90); }
+    else { clearInterval(_precountTicker); numEl.textContent="✓"; beep(880,180); setTimeout(()=>{ overlay.classList.remove("active"); onDone(); }, 350); }
+  }, 800);
+}
+
+function pickCombo(pool){ return pool[Math.floor(Math.random()*pool.length)]; }
+
+function renderPlayerStep(){
+  if(!Player) return;
+  const idx = Player.index;
+  const step = Player.steps[idx];
+  const body = document.getElementById("plBody");
+  const foot = document.getElementById("plFooter");
+  foot.innerHTML = "";
+
+  document.getElementById("plTitle").textContent = `Шаг ${idx+1}/${Player.steps.length} · ${PROGRAM_DATA[Player.workoutId].title}`;
+  document.getElementById("plPrev").style.visibility = idx>0?"visible":"hidden";
+  body.innerHTML = "";
+
+  if(step.kind==="message"){
+    const c = el(`<div><h2 style="text-align:center">${escapeHtml(step.text)}</h2></div>`);
+    body.appendChild(c);
+    const b = el(`<button class="primary">Продолжить</button>`);
+    b.onclick=nextStep; foot.appendChild(b);
+  }
+  else if(step.kind==="timer"){
+    renderTimer(body, foot, step);
+  }
+  else if(step.kind==="rest"){
+    const c = el(`<div style="text-align:center"><div class="muted small">${escapeHtml(step._label||"Отдых")}</div><h2 style="margin-top:10px">Отдых</h2></div>`);
+    body.appendChild(c);
+    renderCountdown(body, foot, step.seconds, false, null, ()=>nextStep());
+  }
+  else if(step.kind==="reps"){
+    const note = step._supersetTotal?`<div class="muted small">Круг ${step._supersetRound}/${step._supersetTotal}</div>`:"";
+    const c = el(`<div style="text-align:center">${note}<h2>${escapeHtml(step.label)}</h2><div class="tag" style="font-size:18px;margin-top:8px">${escapeHtml(step.reps)} повторений</div>${step.note?`<div class="small muted" style="margin-top:8px">${escapeHtml(step.note)}</div>`:""}</div>`);
+    body.appendChild(c);
+    const b = el(`<button class="primary">Готово</button>`);
+    b.onclick=nextStep; foot.appendChild(b);
+  }
+  else {
+    const b = el(`<button class="primary">Дальше</button>`); b.onclick=nextStep; foot.appendChild(b);
+  }
+}
+
+function renderTimer(body, foot, step){
+  let remaining = step.seconds;
+  const comboText = step.comboPool? pickCombo(step.comboPool) : null;
+  const ringWrap = el(`<div class="ring-wrap">
+    <svg width="240" height="240" viewBox="0 0 240 240">
+      <circle cx="120" cy="120" r="110" stroke="#272d38" stroke-width="10" fill="none"/>
+      <circle id="ringProg" cx="120" cy="120" r="110" stroke="${step.comboPool?'#9f7aea':'#6ee7b7'}" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="691" stroke-dashoffset="0"/>
+    </svg>
+    <div class="num" id="ringNum">${remaining}</div>
+  </div>`);
+  body.appendChild(ringWrap);
+  if(step._roundLabel){
+    const r = el(`<div class="muted small">${step._roundLabel}</div>`); body.appendChild(r);
+  }
+  if(comboText){
+    body.appendChild(el(`<div class="combo">${escapeHtml(comboText)}</div>`));
+  } else {
+    body.appendChild(el(`<div class="muted small">${escapeHtml(step.label||"Работа")}</div>`));
+  }
+  const circle = document.getElementById("ringProg");
+  const total = step.seconds;
+  let ticker;
+  let running = true;
+
+  const startBtn = el(`<button class="primary" id="timerStart">${comboText?"Поехали":"Старт"}</button>`);
+  const pauseBtn = el(`<button class="ghost" id="timerPause">Пауза</button>`);
+  const skipBtn = el(`<button class="ghost">Пропустить</button>`);
+  foot.appendChild(startBtn); foot.appendChild(pauseBtn); foot.appendChild(skipBtn);
+  pauseBtn.style.display="none";
+  skipBtn.onclick=()=>{ clearInterval(ticker); nextStep(); };
+
+  startBtn.onclick=()=>{
+    if(AudioCtx && AudioCtx.state==="suspended") AudioCtx.resume();
+    const profile = Store.get("profile");
+    if(profile.play_precount){
+      runPrecount(()=>startTickerNow());
+    } else {
+      startTickerNow();
+    }
+    function startTickerNow(){
+      startBtn.style.display="none"; pauseBtn.style.display="";
+      tick();
+      ticker = setInterval(tick, 1000);
+    }
+  };
+  pauseBtn.onclick=()=>{
+    if(running){ clearInterval(ticker); running=false; pauseBtn.textContent="Продолжить"; }
+    else { running=true; ticker=setInterval(tick,1000); pauseBtn.textContent="Пауза"; }
+  };
+  function tick(){
+    remaining--;
+    const num = document.getElementById("ringNum");
+    if(num) num.textContent = Math.max(0,remaining);
+    const off = 691 * (1 - remaining/total);
+    if(circle) circle.setAttribute("stroke-dashoffset", off);
+    if(remaining<=0){
+      clearInterval(ticker);
+      if(step.sound) beep(880,180);
+      setTimeout(()=>beep(660,120), 200);
+      setTimeout(nextStep, 400);
+    } else if(remaining<=3 && step.sound){
+      beep(620,80);
+    }
+  }
+}
+
+function renderCountdown(body, foot, seconds, sound, comboText, onDone){
+  let remaining = seconds;
+  const wrap = el(`<div class="ring-wrap">
+    <svg width="200" height="200" viewBox="0 0 240 240">
+      <circle cx="120" cy="120" r="110" stroke="#272d38" stroke-width="10" fill="none"/>
+      <circle id="cdProg" cx="120" cy="120" r="110" stroke="#f59e0b" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="691" stroke-dashoffset="0"/>
+    </svg>
+    <div class="num" id="cdNum" style="font-size:44px">${remaining}</div>
+  </div>`);
+  body.appendChild(wrap);
+  if(comboText) body.appendChild(el(`<div class="combo" style="border-color:#f59e0b;color:#f59e0b">${escapeHtml(comboText)}</div>`));
+
+  const skipBtn = el(`<button class="ghost">Пропустить</button>`);
+  const skip2 = el(`<button class="primary">Пропустить отдых</button>`);
+  foot.appendChild(skip2);
+  skip2.onclick=()=>{ clearInterval(ticker); onDone(); };
+
+  const total = seconds;
+  let ticker = setInterval(()=>{
+    remaining--;
+    const n=document.getElementById("cdNum"); if(n) n.textContent=Math.max(0,remaining);
+    const c=document.getElementById("cdProg");
+    if(c) c.setAttribute("stroke-dashoffset", 691*(1-remaining/total));
+    if(remaining<=0){ clearInterval(ticker); if(sound) beep(660,120); onDone(); }
+    else if(remaining<=3 && sound) beep(620,80);
+  },1000);
+}
+
+function nextStep(){
+  Player.index++;
+  if(Player.index>=Player.steps.length){
+    finishWorkout();
+  } else {
+    renderPlayerStep();
+  }
+}
+
+function finishWorkout(){
+  const body = document.getElementById("plBody");
+  const foot = document.getElementById("plFooter");
+  document.getElementById("plTitle").textContent = `Финал — ${PROGRAM_DATA[Player.workoutId].title}`;
+  body.innerHTML = `<div style="text-align:center"><h2>Тренировка окончена 🎉</h2><div class="muted small">Заполните короткую обратную связь.</div></div>`;
+  foot.innerHTML = `<div>
+    <label>RPE (нагрузка 1–10)</label>
+    <input id="finRpe" type="number" min="1" max="10" value="7">
+    <label class="form-line" style="display:flex;align-items:center;margin-top:12px"><input id="finPain" type="checkbox" style="width:auto;margin-right:8px"> Боль в суставе (не мышечная)</label>
+    ${Player.hasBox?`<label style="margin-top:12px">Восстановление дыхания между раундами бокса</label>
+      <div class="row">
+        <button id="recGood" class="ghost">Дыхание в норме</button>
+        <button id="recBad" class="ghost">Не до конца восстановилась</button>
+      </div>`:""}
+    <label style="margin-top:12px">Заметки (опц.)</label>
+    <input id="finNotes" type="text" placeholder="как прошло">
+    <button id="finSave" class="primary" style="margin-top:12px">Сохранить</button>
+  </div>`;
+  document.getElementById("finSave").onclick=()=>{
+    const rpe = parseInt(document.getElementById("finRpe").value)||7;
+    const pain = document.getElementById("finPain").checked;
+    if(Player.hasBox){
+      // уже выбран? требуем выбор
+      if(Player.recoveryAnswer===null){ toast("Отметьте восстановление после бокса"); return; }
+    }
+    const notes = document.getElementById("finNotes").value;
+    // запись
+    const log = Store.get("workout_log");
+    log.push({ date: nowISO(), workout_id: Player.workoutId, rpe, pain_flag: pain, recovery: Player.recoveryAnswer, notes });
+    Store.set("workout_log", log);
+    // стейт
+    let st = Store.get("program_state");
+    Progression.completeWorkout(st, Player.workoutId, rpe, pain);
+    if(Player.hasBox) Progression.boxRecoveryTest(st, Player.recoveryAnswer===true);
+    Store.set("program_state", st);
+    const blocked = Progression.painFlagDecision(st);
+    closePlayer();
+    renderScreen("today");
+    if(blocked) toast("Отметили ≥2 боли за неделю — следующий уровень не разблокирован, неделя повторяется", 4500);
+    else toast("Сохранено! "+(Player&&Player.recoveryAnswer===true?"boxing_tier может вырасти":""), 2600);
+  };
+  if(Player.hasBox){
+    document.getElementById("recGood").onclick=(e)=>{ Player.recoveryAnswer=true; e.target.classList.add("primary"); document.getElementById("recBad").classList.remove("primary"); };
+    document.getElementById("recBad").onclick=(e)=>{ Player.recoveryAnswer=false; e.target.classList.add("primary"); document.getElementById("recGood").classList.remove("primary"); };
+  }
+}
+
+document.getElementById("plPrev").onclick=()=>{ if(Player.index>0){ Player.index--; renderPlayerStep(); } };
+document.getElementById("plExit").onclick=()=>{ if(confirm("Выйти из тренировки? Прогресс не сохранится.")) closePlayer(); };
+
+/* ================== DIARY ================== */
+let DiaryForm = null;
+function renderDiary(){
+  renderDiaryLists();
+}
+function renderDiaryLists(){
+  const list = Store.get("diary_entries").slice().reverse();
+  const today = list.filter(e=>e.date.startsWith(todayStr()));
+  const tl = document.getElementById("diaryTodayList");
+  if(!today.length){ tl.innerHTML = '<div class="muted small">нет записей сегодня</div>'; }
+  else { tl.innerHTML = today.map(diaryEntryHTML).join(""); }
+  const ll = document.getElementById("diaryList");
+  const rest = list.filter(e=>!e.date.startsWith(todayStr())).slice(0,10);
+  if(!rest.length){ ll.innerHTML = '<div class="muted small">нет записей</div>'; }
+  else { ll.innerHTML = rest.map(diaryEntryHTML).join(""); }
+}
+function diaryEntryHTML(e){
+  const f = (e.parsed && (e.parsed.food_estimate||{}))||{};
+  const mood = e.parsed && e.parsed.mood? ` · ${moodEmoji(e.parsed.mood)}`:"";
+  const conf = f.confidence? `<span class="tag ${f.confidence==='low'?'warn':''}">${f.confidence}</span>`:"";
+  return `<div class="ledger">
+    <div class="small muted">${e.date.slice(11,16)||e.date.slice(5,10)}</div>
+    <div class="small">${escapeHtml((e.parsed && e.parsed.notes_summary)||e.raw_text||"")}${mood}</div>
+    <div class="small">${f.calories!=null?Math.round(f.calories)+" кк":""} ${f.protein_g!=null?Math.round(f.protein_g)+"г":""} ${conf}</div>
+  </div>`;
+}
+function moodEmoji(m){ return m==="good"?"😊":m==="bad"?"😟":"😐"; }
+
+function showDiaryForm(parsed, manual){
+  const f = (parsed && (parsed.food_estimate||{}))||{};
+  const box = document.getElementById("diaryForm");
+  box.classList.remove("hidden");
+  DiaryForm = {
+    calories: f.calories, protein_g: f.protein_g, confidence: f.confidence||"low",
+    mood: parsed?parsed.mood:null, rpe_workout: parsed?parsed.rpe_workout:null,
+    notes_summary: parsed?parsed.notes_summary:"", pain_flags: parsed?parsed.pain_flags:[]
+  };
+  box.innerHTML = `
+    <h3>${manual?"Ручной ввод":"Распознано — проверьте"}</h3>
+    ${manual?'<div class="small warn" style="margin-bottom:8px">DeepSeek недоступен — заполните вручную.</div>':`<div class="small muted" style="margin-bottom:8px">confidence: ${DiaryForm.confidence}</div>`}
+    <div class="row">
+      <div><label>Калории</label><input id="dKcal" type="number" value="${DiaryForm.calories||""}"></div>
+      <div><label>Белок, г</label><input id="dProt" type="number" step="0.1" value="${DiaryForm.protein_g||""}"></div>
+    </div>
+    <div class="row">
+      <div><label>Настроение</label><select id="dMood">
+        <option value="">—</option><option value="good">😊</option><option value="neutral">😐</option><option value="bad">😟</option>
+      </select></div>
+      <div><label>RPE трен.</label><input id="dRpe" type="number" min="1" max="10" value="${DiaryForm.rpe_workout||""}"></div>
+    </div>
+    <label>Заметка</label><input id="dNotes" type="text" value="${escapeHtml(DiaryForm.notes_summary||"")}">
+    <div style="margin-top:12px" class="row">
+      <button id="dSave" class="primary">Сохранить</button>
+      <button id="dCancel" class="ghost">Отмена</button>
+    </div>`;
+  if(DiaryForm.mood) document.getElementById("dMood").value = DiaryForm.mood;
+  document.getElementById("dCancel").onclick=()=>{ document.getElementById("diaryForm").classList.add("hidden"); DiaryForm=null; };
+  document.getElementById("dSave").onclick=()=>{
+    const raw = document.getElementById("diaryText").value.trim();
+    const fe = {
+      calories: numOrNull(document.getElementById("dKcal").value),
+      protein_g: numOrNull(document.getElementById("dProt").value),
+      confidence: DiaryForm.confidence
+    };
+    const parsed = {
+      food_estimate: fe,
+      mood: document.getElementById("dMood").value||null,
+      pain_flags: DiaryForm.pain_flags||[],
+      rpe_workout: numOrNull(document.getElementById("dRpe").value),
+      notes_summary: document.getElementById("dNotes").value
+    };
+    const list = Store.get("diary_entries");
+    list.push({ date: nowISO(), raw_text: raw, parsed, manual_override: !!manual });
+    Store.set("diary_entries", list);
+    document.getElementById("diaryText").value="";
+    document.getElementById("diaryForm").classList.add("hidden");
+    DiaryForm=null;
+    // совет кэширован — сбросим, чтобы пересчёлся при следующем запросе
+    const ac = Store.get("advice_cache"); if(ac.date===todayStr()){} // оставим — пользователь сам может «обновить»
+    toast("Сохранено");
+    renderDiary();
+  };
+}
+function numOrNull(v){ v=parseFloat(v); return isNaN(v)?null:v; }
+
+document.getElementById("diaryParse").onclick=async ()=>{
+  const text = document.getElementById("diaryText").value.trim();
+  if(!text){ toast("Введите текст"); return; }
+  const p = Store.get("profile");
+  if(!p.deepseek_api_key){ toast("Укажите DeepSeek API ключ в настройках"); return; }
+  const st = document.getElementById("diaryStatus");
+  st.textContent = "Обращаемся к DeepSeek…";
+  try{
+    const parsed = await DeepSeek.parseDiary(text, p.deepseek_api_key);
+    st.textContent = "";
+    if(parsed.food_estimate.confidence==="low"){
+      showDiaryForm(parsed, false);
+      toast("confidence=low — проверьте значения", 3500);
+    } else {
+      showDiaryForm(parsed, false);
+    }
+  }catch(e){
+    st.textContent = "Ошибка: "+e.message+". Используйте ручной ввод.";
+    toast("DeepSeek недоступен — ручной ввод", 3500);
+  }
+};
+document.getElementById("diaryManual").onclick=()=>showDiaryForm(null, true);
+
+/* ================== PROGRESS ================== */
+function renderProgress(){
+  const prog = Store.get("program_state");
+  const ps = document.getElementById("progState");
+  ps.innerHTML = `
+    <div class="row" style="margin-bottom:6px">
+      <span class="tag ok">Неделя ${prog.current_week}</span>
+      <span class="tag ${prog.tempo_unlocked?'ok':''}">Tempo ${prog.tempo_unlocked?'✓':'—'}</span>
+      <span class="tag ${prog.resistance_unlocked?'ok':''}">Resistance ${prog.resistance_unlocked?'✓':'—'}</span>
+      <span class="tag">Бокс tier ${prog.boxing_tier}</span>
+    </div>
+    <div class="small muted">${Progression.weekName(prog.current_week)} · pass streak: ${prog.boxing_recovery_pass_streak} · pain this week: ${prog.pain_flags_this_week||0}</div>`;
+
+  drawWeightChart();
+  // measurements
+  const meas = Store.get("measurements_log");
+  if(meas.length){ document.getElementById("measCard").classList.remove("hidden"); drawMeasChart(); }
+
+  // streak 28d
+  const completed = prog.completed_days||[];
+  const wl = Store.get("workout_log");
+  let cells="";
+  for(let i=27;i>=0;i--){
+    const ds = daysAgoStr(i);
+    const isDone = completed.some(x=>x===ds) || wl.some(w=>w.date.startsWith(ds));
+    cells += `<div class="streak-dot ${isDone?'done':''}" title="${ds}"></div>`;
+  }
+  document.getElementById("progStreak").innerHTML = cells;
+}
+
+function drawWeightChart(){
+  const c = document.getElementById("weightChart");
+  const ctx = c.getContext("2d");
+  const wl = Store.get("weight_log").slice().sort((a,b)=>a.date.localeCompare(b.date));
+  ctx.clearRect(0,0,c.width,c.height);
+  if(wl.length<1){
+    ctx.fillStyle="#8b94a3"; ctx.font="14px sans-serif"; ctx.textAlign="center";
+    ctx.fillText("Нет данных веса. Добавьте в поле выше.", c.width/2, c.height/2);
+    document.getElementById("weightStats").textContent="";
+    return;
+  }
+  const vals = wl.map(x=>x.weight_kg);
+  let min=Math.min(...vals), max=Math.max(...vals);
+  if(min===max){ min-=1; max+=1; }
+  const pad=18, W=c.width-pad*2, H=c.height-pad*2;
+  const x=i => pad + (wl.length===1?W/2 : i/(wl.length-1)*W);
+  const y=v => pad + (1-(v-min)/(max-min))*H;
+  // grid
+  ctx.strokeStyle="#272d38"; ctx.lineWidth=1;
+  for(let g=0;g<=4;g++){ const yy=pad+g/4*H; ctx.beginPath(); ctx.moveTo(pad,yy); ctx.lineTo(pad+W,yy); ctx.stroke(); }
+  // 7-day moving avg
+  const ma = [];
+  for(let i=0;i<wl.length;i++){
+    const start=Math.max(0,i-6);
+    const slice=vals.slice(start,i+1);
+    ma.push(slice.reduce((s,x)=>s+x,0)/slice.length);
+  }
+  // line
+  ctx.strokeStyle="#6ee7b7"; ctx.lineWidth=2; ctx.beginPath();
+  ma.forEach((v,i)=>{ const X=x(i),Y=y(v); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y); });
+  ctx.stroke();
+  // dots
+  ctx.fillStyle="#9f7aea";
+  wl.forEach((p,i)=>{ ctx.beginPath(); ctx.arc(x(i),y(p.weight_kg),3,0,7); ctx.fill(); });
+  // labels
+  ctx.fillStyle="#8b94a3"; ctx.font="11px sans-serif"; ctx.textAlign="left";
+  const last = wl[wl.length-1];
+  const first = wl[0];
+  const trend = Calc.weightTrend7d();
+  document.getElementById("weightStats").textContent = `текущий: ${last.weight_kg} кг · старт: ${first.weight_kg} кг · тренд 7д: ${trend==null?"мало данных":(trend>0?"+":"")+trend+" кг/нед"} · записей: ${wl.length}`;
+}
+function drawMeasChart(){
+  const c = document.getElementById("measChart");
+  const ctx = c.getContext("2d");
+  const m = Store.get("measurements_log").slice().sort((a,b)=>a.date.localeCompare(b.date));
+  ctx.clearRect(0,0,c.width,c.height);
+  if(!m.length){ ctx.fillStyle="#8b94a3"; ctx.font="13px sans-serif"; ctx.textAlign="center"; ctx.fillText("Нет замеров",c.width/2,c.height/2); return; }
+  const all=[]; m.forEach(x=>{ if(x.waist_cm)all.push(x.waist_cm); if(x.hips_cm)all.push(x.hips_cm); });
+  if(!all.length) return;
+  let min=Math.min(...all),max=Math.max(...all); if(min===max){min-=1;max+=1;}
+  const pad=18,W=c.width-pad*2,H=c.height-pad*2;
+  const x=i=>pad+(m.length===1?W/2:i/(m.length-1)*W);
+  const y=v=>pad+(1-(v-min)/(max-min))*H;
+  function lineSeries(key,color){
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath();
+    let started=false;
+    m.forEach((p,i)=>{ if(p[key]==null)return; const X=x(i),Y=y(p[key]); if(!started){ctx.moveTo(X,Y);started=true;} else ctx.lineTo(X,Y); });
+    ctx.stroke();
+  }
+  lineSeries("waist_cm","#6ee7b7");
+  lineSeries("hips_cm","#9f7aea");
+  ctx.fillStyle="#8b94a3"; ctx.font="11px sans-serif"; ctx.textAlign="left";
+  ctx.fillText("талия",pad,14); ctx.textAlign="right"; ctx.fillText("бёдра",c.width-pad,14);
+}
+document.getElementById("weightAdd").onclick=()=>{
+  const v = parseFloat(document.getElementById("weightInput").value);
+  if(!v||v<30||v>250){ toast("Введите вес"); return; }
+  const today = todayStr();
+  const wl=Store.get("weight_log");
+  const idx = wl.findIndex(x=>x.date===today);
+  if(idx>=0){ wl[idx].weight_kg=v; toast("Вес обновлён за сегодня"); }
+  else { wl.push({date:today,weight_kg:v}); toast("Вес добавлен"); }
+  Store.set("weight_log", wl);
+  document.getElementById("weightInput").value="";
+  renderProgress();
+};
+document.getElementById("measAdd").onclick=()=>{
+  const w=parseFloat(document.getElementById("waistInput").value);
+  const h=parseFloat(document.getElementById("hipsInput").value);
+  if(!w&&!h){ toast("Введите замер"); return; }
+  const m=Store.get("measurements_log"); m.push({date:todayStr(),waist_cm:w||null,hips_cm:h||null}); Store.set("measurements_log",m);
+  document.getElementById("waistInput").value=""; document.getElementById("hipsInput").value="";
+  renderProgress(); toast("Замер добавлен");
+};
+
+/* ================== SETTINGS ================== */
+function renderSettings(){
+  const p = Store.get("profile");
+  document.getElementById("pHeight").value = p.height_cm||"";
+  document.getElementById("pAge").value = p.age||"";
+  document.getElementById("pWeight").value = Calc.currentWeightKg(p)||"";
+  document.getElementById("pAct").value = String(p.activity_multiplier||1.4);
+  document.getElementById("pDef").value = String(p.deficit_kcal||0);
+  document.getElementById("pKey").value = p.deepseek_api_key||"";
+  document.getElementById("pPrecount").checked = p.play_precount!==false;
+  updateProfileCalc();
+}
+function updateProfileCalc(){
+  const p=readProfileForm();
+  if(!p) return;
+  document.getElementById("profileCalc").textContent = `BMR ${Math.round(Calc.bmr(p))} · TDEE ${Math.round(Calc.tdee(p))} · цель ${Calc.targetKcal(p)} ккал / ${Calc.targetProtein(p)} г белка`;
+}
+function readProfileForm(){
+  const p = Store.get("profile");
+  p.height_cm = parseFloat(document.getElementById("pHeight").value)||p.height_cm;
+  p.age = parseFloat(document.getElementById("pAge").value)||null;
+  // вес из формы не пишем в profile, только в weight_log через «+», но здесь храним стартовый
+  p.activity_multiplier = parseFloat(document.getElementById("pAct").value)||1.4;
+  p.deficit_kcal = parseFloat(document.getElementById("pDef").value)||0;
+  p.deepseek_api_key = document.getElementById("pKey").value.trim()||p.deepseek_api_key;
+  p.play_precount = document.getElementById("pPrecount").checked;
+  return p;
+}
+document.getElementById("saveProfile").onclick=()=>{
+  const p = readProfileForm();
+  // если введён «текущий вес» — добавим в весовой лог (если он отличается/новый)
+  const wIn = parseFloat(document.getElementById("pWeight").value);
+  if(wIn){
+    const wl=Store.get("weight_log");
+    const last = wl[wl.length-1];
+    if(!last || last.weight_kg!==wIn){ wl.push({date:todayStr(),weight_kg:wIn}); Store.set("weight_log",wl); }
+    if(!p.weight_start_kg) p.weight_start_kg = wIn;
+  }
+  Store.set("profile", p);
+  toast("Профиль сохранён");
+  updateProfileCalc();
+};
+["pHeight","pAge","pWeight","pAct","pDef"].forEach(id=>{ document.getElementById(id).addEventListener("input",updateProfileCalc); });
+
+document.getElementById("exportBtn").onclick=()=>{
+  const data = Store.raw();
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download=`tracker-backup-${todayStr()}.json`; a.click();
+  URL.revokeObjectURL(url);
+  toast("Экспортировано");
+};
+document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
+document.getElementById("importFile").onchange=(e)=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!d || typeof d!=="object") throw new Error("не объект");
+      // валидация whitelist ключей
+      const known = KEYS.slice();
+      const unknown = Object.keys(d).filter(k=>!known.includes(k));
+      if(unknown.length) throw new Error("лишние ключи: "+unknown.join(", "));
+      if(!Store.replace(d)) throw new Error("replace отклонён");
+      toast("Импортировано"); renderScreen("settings");
+    }
+    catch(err){ toast("Импорт отклонён: "+err.message, 4000); }
+  };
+  r.readAsText(f);
+};
+document.getElementById("resetProgram").onclick=()=>{
+  if(confirm("Сбросить program_state? (история тренировок и веса останется)")){
+    Store.set("program_state", structuredClone(DEFAULTS.program_state));
+    toast("program_state сброшен"); renderSettings();
+  }
+};
+document.getElementById("clearAll").onclick=()=>{
+  if(confirm("Удалить ВСЕ данные трекера? Действие необратимо.")){
+    Store.wipeAll(); toast("Все данные удалены"); renderSettings();
+  }
+};
+
+// dev-mode: ?dev=1 или long-tap на версию
+function setupDevMode(){
+  if(location.search.includes("dev=1")){ document.getElementById("devReset").classList.remove("hidden"); }
+  let tapTimer=null, taps=0;
+  document.getElementById("ver").addEventListener("click",()=>{
+    taps++;
+    clearTimeout(tapTimer);
+    tapTimer=setTimeout(()=>{ taps=0; },600);
+    if(taps>=5){ document.getElementById("devReset").classList.remove("hidden"); taps=0; }
+  });
+}
+
+/* ================== ESCAPE ================== */
+function escapeHtml(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ================== TABS / INIT ================== */
+document.querySelectorAll("#tabNav .tabs button").forEach(b=>{
+  b.onclick=()=>renderScreen(b.dataset.tab);
+});
+setupDevMode();
+renderScreen("today");
+
+// онбординг: если профиль не заполнен — показать модалку
+(function(){
+  const p = Store.get("profile");
+  const onboarded = localStorage.getItem("tracker:onboarded");
+  if(!p.age && !onboarded){
+    const m = document.getElementById("onboardModal");
+    m.classList.add("active");
+    document.getElementById("obSave").onclick=()=>{
+      const pp = Store.get("profile");
+      pp.height_cm = parseFloat(document.getElementById("obHeight").value)||pp.height_cm;
+      pp.age = parseFloat(document.getElementById("obAge").value)||null;
+      pp.weight_start_kg = parseFloat(document.getElementById("obWeight").value)||pp.weight_start_kg;
+      pp.activity_multiplier = parseFloat(document.getElementById("obAct").value)||1.4;
+      pp.deficit_kcal = parseFloat(document.getElementById("obDef").value)||0;
+      pp.deepseek_api_key = document.getElementById("obKey").value.trim();
+      Store.set("profile", pp);
+      // стартовый вес в лог, чтобы графики и формулы работали сразу
+      if(pp.weight_start_kg){
+        const wl = Store.get("weight_log");
+        if(!wl.length) wl.push({date:todayStr(),weight_kg:pp.weight_start_kg});
+        Store.set("weight_log", wl);
+      }
+      localStorage.setItem("tracker:onboarded","1");
+      m.classList.remove("active");
+      renderScreen("today");
+      toast("Готово! Профиль сохранён");
+    };
+    // можно закрыть свайпом вниз/кнопкой — но без сохраненияHe отмечаем onboarded, чтобыillon
+  } else if(!p.age){
+    setTimeout(()=>toast("Укажите возраст в настройках для расчёта калорий",4000), 1500);
+  }
+})();
+
+// Service Worker для offline/PWA
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{ /* silent */ });
+  });
+}
+</script>
+</body>
+</html>
