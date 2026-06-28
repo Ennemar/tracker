@@ -90,6 +90,42 @@ label{display:block;margin:12px 0 4px;color:var(--muted);font-size:14px}
 .meal-templates .chip .x{margin-left:6px;color:var(--muted);font-size:11px}
 .theme-toggle{display:flex;align-items:center;gap:8px}
 .theme-toggle select{flex:0 0 auto;width:auto}
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:0}
+.kpi-tile{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center}
+.kpi-tile .v{font-size:22px;font-weight:700;line-height:1.1}
+.kpi-tile .l{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.02em}
+.delta-up{color:var(--bad)}
+.delta-down{color:var(--acc)}
+.delta-flat{color:var(--muted)}
+.prog-bar{position:relative;height:10px;background:var(--bg3);border-radius:6px;overflow:hidden;margin:10px 0 4px}
+.prog-bar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--acc);border-radius:6px;transition:width .3s}
+.prog-bar .ticks{position:absolute;inset:0;display:flex}
+.prog-bar .ticks span{flex:1;border-right:1px solid rgba(0,0,0,.25)}
+.prog-bar.warn .fill{background:var(--warn)}
+.prog-bar.bad .fill{background:var(--bad)}
+.week-cal{display:grid;grid-template-columns:28px repeat(4,1fr);gap:4px;margin-top:8px}
+.week-cal .head{font-size:11px;color:var(--muted);text-align:center;padding-bottom:4px}
+.week-cal .day-name{font-size:11px;color:var(--muted);display:flex;align-items:center;justify-content:flex-end;padding-right:6px}
+.day-cell{aspect-ratio:1;border-radius:6px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;font-size:10px;color:transparent;display:flex;align-items:center;justify-content:center}
+.day-cell.empty{background:var(--bg3)}
+.day-cell.rest{background:#2a2030;color:transparent}
+.day-cell.active{background:#3a4d6e}
+.day-cell.walk{background:#2d4a3f}
+.day-cell.done{background:var(--acc);color:#08231a}
+.day-cell:hover{outline:2px solid var(--acc2);outline-offset:1px}
+.legend-row{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend-row .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+.axis-x{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px;padding:0 2px}
+.period-tabs{display:inline-flex;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:2px;margin-bottom:8px}
+.period-tabs button{border:0;background:transparent;color:var(--muted);padding:6px 12px;border-radius:6px;font-size:13px}
+.period-tabs button.active{background:var(--acc);color:#08231a;font-weight:600}
+.day-popover{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:none;align-items:center;justify-content:center;padding:16px}
+.day-popover.active{display:flex}
+.day-popover .card{max-width:400px;width:100%;margin:0}
+.input-inline{display:flex;gap:6px;align-items:flex-end}
+.input-inline > div{flex:1}
+.explain-block{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+.explain-block summary{cursor:pointer;color:var(--acc2);font-weight:600;font-size:13px;outline:none}
 </style>
 </head>
 <body>
@@ -146,37 +182,71 @@ label{display:block;margin:12px 0 4px;color:var(--muted);font-size:14px}
 <!-- PROGRESS -->
 <main id="screen-progress" class="screen">
   <h1>Прогресс</h1>
+
+  <div class="card">
+    <div class="kpi-grid" id="heroKPI"></div>
+  </div>
+
   <div class="card">
     <h3>Статус программы</h3>
     <div id="progState"></div>
   </div>
+
   <div class="card">
     <div class="row" style="align-items:center;margin-bottom:8px">
       <h2 style="margin:0;flex:1">Вес</h2>
-      <div class="row" style="flex:0;gap:6px">
-        <input id="weightInput" type="number" step="0.1" placeholder="кг" style="width:90px">
-        <button id="weightAdd">+</button>
+      <div class="period-tabs" id="weightPeriod">
+        <button data-period="7">7д</button>
+        <button data-period="28" class="active">28д</button>
+        <button data-period="all">всё</button>
       </div>
     </div>
-    <canvas id="weightChart" width="600" height="200" style="width:100%;height:auto"></canvas>
-    <div id="weightStats" class="small muted" style="margin-top:6px"></div>
-  </div>
-  <div class="card hidden" id="measCard">
-    <div class="row" style="align-items:center;margin-bottom:8px">
-      <h2 style="margin:0;flex:1">Замеры</h2>
-      <div class="row" style="flex:0;gap:6px">
-        <input id="waistInput" type="number" placeholder="талия" style="width:90px">
-        <input id="hipsInput" type="number" placeholder="бёдра" style="width:90px">
-        <button id="measAdd">+</button>
+    <canvas id="weightChart" width="600" height="220" style="width:100%;height:auto;touch-action:none"></canvas>
+    <div class="axis-x" id="weightAxis"></div>
+    <div class="kpi-grid" id="weightKPI" style="margin-top:10px"></div>
+    <div style="margin-top:14px">
+      <label>Сегодняшний вес, кг</label>
+      <div class="input-inline">
+        <div><input id="weightInput" type="number" step="0.1" placeholder="напр. 62.4"></div>
+        <button id="weightAdd" class="primary" style="flex:0 0 auto;padding:10px 18px">Добавить</button>
       </div>
+      <div id="weightInputStatus" class="small muted" style="margin-top:6px"></div>
     </div>
-    <canvas id="measChart" width="600" height="160" style="width:100%;height:auto"></canvas>
   </div>
+
   <div class="card">
-    <h3>Стрик тренировок (4 недели)</h3>
-    <div id="progStreak" class="cal-grid"></div>
+    <h2 style="margin:0 0 8px">Замеры</h2>
+    <div id="measEmpty" class="hidden" style="text-align:center;padding:14px 0">
+      <div class="muted small" style="margin-bottom:10px">Пока нет замеров. Добавьте талию и бёдра — раз в 1–2 недели достаточно.</div>
+      <button id="measAddFirst" class="primary">Добавить первый замер</button>
+    </div>
+    <div id="measFilled" class="hidden">
+      <canvas id="measChart" width="600" height="160" style="width:100%;height:auto;touch-action:none"></canvas>
+      <div class="axis-x" id="measAxis"></div>
+      <div class="kpi-grid" id="measKPI" style="margin-top:10px"></div>
+    </div>
+    <div id="measForm" class="hidden" style="margin-top:14px">
+      <div class="input-inline">
+        <div><label>Талия, см</label><input id="waistInput" type="number" step="0.1" placeholder="65"></div>
+        <div><label>Бёдра, см</label><input id="hipsInput" type="number" step="0.1" placeholder="95"></div>
+        <button id="measAdd" class="primary" style="flex:0 0 auto;padding:10px 18px;margin-bottom:0">Добавить</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Стрик (4 недели)</h3>
+    <div id="progStreak"></div>
+    <div class="legend-row" id="streakLegend"></div>
+    <div id="streakTomorrow" class="small muted" style="margin-top:10px"></div>
   </div>
 </main>
+
+<div class="day-popover" id="dayPopover">
+  <div class="card">
+    <div id="popoverBody"></div>
+  </div>
+</div>
 
 <!-- SETTINGS -->
 <main id="screen-settings" class="screen">
@@ -1357,52 +1427,167 @@ document.getElementById("tmplAdd").onclick=()=>MealTemplates.add();
 /* ================== PROGRESS ================== */
 function renderProgress(){
   const prog = Store.get("program_state");
-  const ps = document.getElementById("progState");
-  ps.innerHTML = `
-    <div class="row" style="margin-bottom:6px">
-      <span class="tag ok">Неделя ${prog.current_week}</span>
-      <span class="tag ${prog.tempo_unlocked?'ok':''}">Tempo ${prog.tempo_unlocked?'✓':'—'}</span>
-      <span class="tag ${prog.resistance_unlocked?'ok':''}">Resistance ${prog.resistance_unlocked?'✓':'—'}</span>
-      <span class="tag">Бокс tier ${prog.boxing_tier}</span>
-    </div>
-    <div class="small muted">${Progression.weekName(prog.current_week)} · pass streak: ${prog.boxing_recovery_pass_streak} · pain this week: ${prog.pain_flags_this_week||0}</div>`;
+  renderHeroKPI();
+  renderStatusCard(prog);
 
-  drawWeightChart();
-  // measurements
+  const period = ProgressUI.weightPeriod || 28;
+  drawWeightChart(period);
+
   const meas = Store.get("measurements_log");
-  if(meas.length){ document.getElementById("measCard").classList.remove("hidden"); drawMeasChart(); }
-
-  // streak 28d
-  const completed = prog.completed_days||[];
-  const wl = Store.get("workout_log");
-  let cells="";
-  for(let i=27;i>=0;i--){
-    const ds = daysAgoStr(i);
-    const isDone = completed.some(x=>x===ds) || wl.some(w=>w.date.startsWith(ds));
-    cells += `<div class="streak-dot ${isDone?'done':''}" title="${ds}"></div>`;
+  if(!meas.length){
+    document.getElementById("measEmpty").classList.remove("hidden");
+    document.getElementById("measFilled").classList.add("hidden");
+    document.getElementById("measForm").classList.add("hidden");
+  } else {
+    document.getElementById("measEmpty").classList.add("hidden");
+    document.getElementById("measFilled").classList.remove("hidden");
+    drawMeasChart();
+    renderMeasKPI();
   }
-  document.getElementById("progStreak").innerHTML = cells;
+
+  renderWeekCalendar(prog);
 }
 
-function drawWeightChart(){
+const ProgressUI = { weightPeriod: 28 };
+
+function renderHeroKPI(){
+  const wl = Store.get("weight_log").slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const trend = Calc.weightTrend7d();
+  const trendStr = trend==null ? "—" : (trend>0?"+":"")+trend;
+  const trendClass = trend==null ? "delta-flat" : (trend>0 ? "delta-up" : (trend<0 ? "delta-down" : "delta-flat"));
+
+  const weekStart = daysAgoStr(6);
+  const workoutsThisWeek = Store.get("workout_log").filter(w=>w.date.startsWith(weekStart) || w.date>=weekStart).length;
+  const todayDow = new Date().getDay();
+  const daysFromMon = (todayDow===0) ? 6 : todayDow-1;
+  const plannedThisWeek = [1,2,3,5,6].filter(d=>d<=todayDow || d===todayDow).length + (todayDow===0?1:0);
+  const planCount = 4;
+
+  const last28 = Store.get("workout_log").filter(w=>w.date>=daysAgoStr(27)).length;
+  const hero = document.getElementById("heroKPI");
+  hero.innerHTML = `
+    <div class="kpi-tile">
+      <div class="v ${trendClass}">${trendStr}<span style="font-size:12px"> кг/нед</span></div>
+      <div class="l">Δ веса 7д</div>
+    </div>
+    <div class="kpi-tile">
+      <div class="v">${workoutsThisWeek}<span style="font-size:12px;color:var(--muted)"> / ${planCount}</span></div>
+      <div class="l">тренировок на неделе</div>
+    </div>
+    <div class="kpi-tile">
+      <div class="v">${last28}<span style="font-size:12px;color:var(--muted)">/28</span></div>
+      <div class="l">дней с тренировкой</div>
+    </div>`;
+}
+
+function renderStatusCard(prog){
+  const ps = document.getElementById("progState");
+  const weekName = Progression.weekName(prog.current_week);
+  const weekDisplay = Math.min(prog.current_week, 4);
+  // прогресс-бар недели: для недели 1-4 — процентовка по самой неделе; >=4 — 100%
+  let weekPct;
+  if(prog.current_week>=4) weekPct = 100;
+  else {
+    // с учёта начала недели: если week_start_date не задано — 0
+    if(prog.week_start_date){
+      const days = Math.min(7, Math.max(0, Math.floor((new Date(todayStr())-new Date(prog.week_start_date))/86400000)));
+      // композит: позиция в текущей неделе (показывает прогресс внутри недели)
+      weekPct = Math.round(((prog.current_week-1)/4)*100 + (days/7)*25);
+      weekPct = Math.min(100, weekPct);
+    } else weekPct = Math.round((prog.current_week/4)*100);
+  }
+  const painCount = prog.pain_flags_this_week||0;
+  const painClass = painCount>=2 ? "bad" : (painCount===1 ? "warn" : "");
+  const painLabel = painCount>=2 ? `${painCount} — неделя повторится, уровни не разблокируются` : (painCount===1 ? "1 — осторожно, следите за суставом" : "0 — всё ок");
+  const painPct = Math.min(100, painCount>=2 ? 100 : painCount*50);
+  const recoveryStreak = prog.boxing_recovery_pass_streak||0;
+  const recoveryPct = Math.min(100, Math.round(recoveryStreak/2*100));
+  const recoveryLabel = recoveryStreak>=2 ? "уровень бокса растёт!" : `${recoveryStreak}/2 успешных теста до нового уровня`;
+
+  ps.innerHTML = `
+    <div class="row" style="margin-bottom:10px;gap:6px">
+      <span class="tag ok">Неделя ${prog.current_week}</span>
+      <span class="tag ${prog.tempo_unlocked?'ok':''}">${prog.tempo_unlocked?'Медленный темп ✓':'Темп — закрыто'}</span>
+      <span class="tag ${prog.resistance_unlocked?'ok':''}">${prog.resistance_unlocked?'Отягощение ✓':'Отягощение — закрыто'}</span>
+      <span class="tag">Уровень бокса: ${prog.boxing_tier}/${BOXING_TIER_MAX}</span>
+    </div>
+    <div class="small muted" style="margin-bottom:4px">Фаза: ${weekName}</div>
+
+    <div class="small muted" style="margin-top:10px">Прогресс программы</div>
+    <div class="prog-bar"><div class="fill" style="width:${weekPct}%"></div>
+      <div class="ticks"><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div class="small muted" style="display:flex;justify-content:space-between;font-size:10px">
+      <span>Нед 1</span><span>2</span><span>3</span><span>4+</span>
+    </div>
+
+    <div class="small muted" style="margin-top:10px">Боль на неделе</div>
+    <div class="prog-bar ${painClass}"><div class="fill" style="width:${painPct}%"></div></div>
+    <div class="small ${painClass==='bad'?'delta-up':painClass==='warn'?'warn':'muted'}">${painLabel}</div>
+
+    <div class="small muted" style="margin-top:10px">Готовность к новому уровню бокса</div>
+    <div class="prog-bar"><div class="fill" style="width:${recoveryPct}%"></div></div>
+    <div class="small muted">${recoveryLabel}</div>
+
+    <details class="explain-block">
+      <summary>Что это значит?</summary>
+      <div style="margin-top:8px">
+        <p><strong>Неделя ${prog.current_week} (${weekName}).</strong> Программа идёт по принципу «один рычаг за раз»: сначала техника, потом темп, отягощение, совмещение.</p>
+        <p><strong>Медленный темп</strong> — разрешение делать спуск 3–4 сек в отмеченных упражнениях. Открывается после 1-й недели без боли.</p>
+        <p><strong>Отягощение</strong> — добавить резинку/бутылку в отведения. Открывается после 2-й недели без боли.</p>
+        <p><strong>Уровень бокса ${prog.boxing_tier}/${BOXING_TIER_MAX}</strong> — +1 за каждые 2 успешных теста восстановления дыхания. Сокращает отдых между раундами на 15 сек (минимум 10 сек).</p>
+        <p><strong>Боль на неделе ≥2</strong> — следующий уровень не разблокируется, неделя повторяется.</p>
+      </div>
+    </details>`;
+}
+
+function drawWeightChart(period){
   const c = document.getElementById("weightChart");
   const ctx = c.getContext("2d");
-  const wl = Store.get("weight_log").slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const all = Store.get("weight_log").slice().sort((a,b)=>a.date.localeCompare(b.date));
   ctx.clearRect(0,0,c.width,c.height);
+
+  // фильт по периоду
+  let wl = all;
+  if(period===7) wl = all.slice(-7);
+  else if(period===28) wl = all.slice(-28);
+
+  const axisEl = document.getElementById("weightAxis");
+  const kpiEl = document.getElementById("weightKPI");
+
   if(wl.length<1){
     ctx.fillStyle="#8b94a3"; ctx.font="14px sans-serif"; ctx.textAlign="center";
-    ctx.fillText("Нет данных веса. Добавьте в поле выше.", c.width/2, c.height/2);
-    document.getElementById("weightStats").textContent="";
+    ctx.fillText("Нет данных веса. Добавьте сюда ↓", c.width/2, c.height/2);
+    axisEl.innerHTML = "";
+    kpiEl.innerHTML = "";
     return;
   }
+
   const vals = wl.map(x=>x.weight_kg);
   let min=Math.min(...vals), max=Math.max(...vals);
-  if(min===max){ min-=1; max+=1; }
+  if(min===max){ min-=1; max+=1; } else { const r=max-min; min-=r*0.1; max+=r*0.1; }
   const pad=18, W=c.width-pad*2, H=c.height-pad*2;
   const x=i => pad + (wl.length===1?W/2 : i/(wl.length-1)*W);
   const y=v => pad + (1-(v-min)/(max-min))*H;
+
   ctx.strokeStyle="#272d38"; ctx.lineWidth=1;
   for(let g=0;g<=4;g++){ const yy=pad+g/4*H; ctx.beginPath(); ctx.moveTo(pad,yy); ctx.lineTo(pad+W,yy); ctx.stroke(); }
+
+  // вертикальная пунктирная метка «старт программы»
+  const prog = Store.get("program_state");
+  if(prog.week_start_date){
+    const startDate = prog.week_start_date;
+    const startIdx = wl.findIndex(p=>p.date>=startDate);
+    if(startIdx>0){
+      const X = x(startIdx);
+      ctx.setLineDash([4,4]); ctx.strokeStyle="#3a4453"; ctx.beginPath();
+      ctx.moveTo(X,pad); ctx.lineTo(X,pad+H); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle="#3a4453"; ctx.textAlign="center"; ctx.font="10px sans-serif";
+      ctx.fillText("старт программы", X, pad-4);
+    }
+  }
+
+  // 7-day moving avg
   const ma = [];
   for(let i=0;i<wl.length;i++){
     const start=Math.max(0,i-6);
@@ -1412,55 +1597,114 @@ function drawWeightChart(){
   ctx.strokeStyle="#6ee7b7"; ctx.lineWidth=2; ctx.beginPath();
   ma.forEach((v,i)=>{ const X=x(i),Y=y(v); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y); });
   ctx.stroke();
+  // dots
   ctx.fillStyle="#9f7aea";
   const pts = wl.map((p,i)=>({x:x(i),y:y(p.weight_kg),date:p.date,val:p.weight_kg}));
   pts.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,4,0,7); ctx.fill(); });
-  ctx.fillStyle="#8b94a3"; ctx.font="11px sans-serif"; ctx.textAlign="left";
+  // метка «сегодня» около последней точки
+  if(pts.length){
+    const lastP = pts[pts.length-1];
+    ctx.fillStyle="#6ee7b7"; ctx.textAlign="right"; ctx.font="11px sans-serif";
+    ctx.fillText("сегодня", c.width-pad, lastP.y-8);
+  }
+
+  // ОСЬ X — 4-5 подписей
+  const ticks = Math.min(5, wl.length);
+  let axisHTML = "";
+  for(let i=0;i<ticks;i++){
+    const idx = Math.round((ticks-1===0?0:i/(ticks-1)*(wl.length-1)));
+    const d = wl[idx].date;
+    const dateStr = d.slice(5).replace("-",".");
+    axisHTML += `<span>${dateStr}</span>`;
+  }
+  axisEl.innerHTML = axisHTML;
+
+  // KPI под графиком
   const last = wl[wl.length-1];
   const first = wl[0];
+  const deltaTotal = +(last.weight_kg-first.weight_kg).toFixed(2);
   const trend = Calc.weightTrend7d();
-  document.getElementById("weightStats").textContent = `текущий: ${last.weight_kg} кг · старт: ${first.weight_kg} кг · тренд 7д: ${trend==null?"мало данных":(trend>0?"+":"")+trend+" кг/нед"} · записей: ${wl.length}`;
-  // tooltip overlay (создаём один раз поверх canvas)
+  const deltaClass = (v)=> v===null||v===0 ? "delta-flat" : (v>0?"delta-up":"delta-down");
+  const deltaStr = (v)=> v==null? "—" : (v>0?"+"+v:v);
+  kpiEl.innerHTML = `
+    <div class="kpi-tile"><div class="v" style="font-size:18px">${first.weight_kg}</div><div class="l">старт</div></div>
+    <div class="kpi-tile"><div class="v" style="font-size:18px">${last.weight_kg}</div><div class="l">сейчас</div></div>
+    <div class="kpi-tile"><div class="v ${deltaClass(trend)}" style="font-size:18px">${deltaStr(trend)}</div><div class="l">Δ 7д, кг/нед</div></div>
+    <div class="kpi-tile"><div class="v ${deltaClass(deltaTotal)}" style="font-size:18px">${deltaStr(deltaTotal)}</div><div class="l">Δ ${period==='all'?'всё':period+'д'}, кг</div></div>`;
+
+  // tooltip overlay (один раз)
   let tip = document.getElementById("weightTip");
   if(!tip){
     tip = document.createElement("div");
     tip.id = "weightTip"; tip.className="chart-tip"; tip.style.display="none";
     c.parentElement.style.position = "relative";
     c.parentElement.appendChild(tip);
+    let tipData = [];
+    let longPressTimer = null;
     const onMove = (ev)=>{
       const rect = c.getBoundingClientRect();
       const px = (ev.touches? ev.touches[0].clientX : ev.clientX) - rect.left;
-      const py = (ev.touches? ev.touches[0].clientY : ev.clientY) - rect.top;
       const scaleX = c.width / rect.width;
       const cx = px * scaleX;
-      let nearest=null, nd=Infinity;
-      pts.forEach(p=>{ const d=Math.abs(p.x-cx); if(d<nd){nd=d; nearest=p;} });
+      let nearest=null, nd=Infinity, nIdx=-1;
+      tipData.forEach((p,i)=>{ const d=Math.abs(p.x-cx); if(d<nd){nd=d; nearest=p; nIdx=i;} });
       if(nearest && nd < 30){
         const dispX = (nearest.x/scaleX);
+        const prev = nIdx>0 ? tipData[nIdx-1] : null;
+        const dv = prev ? +(nearest.val-prev.val).toFixed(2) : null;
+        const dvStr = dv==null? "" : (dv>0?` · +${dv}`:(dv<0?` · ${dv}`:" · 0"));
         tip.style.display="block";
         tip.style.left = dispX + "px";
         tip.style.top = ((nearest.y/(c.height/rect.height))) + "px";
-        tip.textContent = `${nearest.date} · ${nearest.val} кг`;
+        tip.textContent = `${nearest.date} · ${nearest.val} кг${dvStr}`;
       } else { tip.style.display="none"; }
     };
-    const onLeave = ()=>{ tip.style.display="none"; };
+    const onLeave = ()=>{ if(longPressTimer){clearTimeout(longPressTimer);longPressTimer=null;} tip.style.display="none"; };
+    const onDown = (ev)=>{
+      const rect = c.getBoundingClientRect();
+      const px = (ev.touches? ev.touches[0].clientX : ev.clientX) - rect.left;
+      const scaleX = c.width / rect.width;
+      const cx = px * scaleX;
+      let nearest=null, nd=Infinity, nIdx=-1;
+      tipData.forEach((p,i)=>{ const d=Math.abs(p.x-cx); if(d<nd){nd=d; nearest=p; nIdx=i;} });
+      if(nearest && nd < 30){
+        if(longPressTimer) clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(()=>{
+          if(confirm(`Удалить запись ${nearest.date} · ${nearest.val} кг?`)){
+            const arr = Store.get("weight_log").filter(x=>!(x.date===nearest.date && x.weight_kg===nearest.val));
+            Store.set("weight_log", arr);
+            renderProgress(); toast("Удалено");
+          }
+        }, 600);
+      }
+    };
+    const onUp = ()=>{ if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } };
     c.addEventListener("mousemove", onMove);
     c.addEventListener("touchstart", onMove, {passive:true});
+    c.addEventListener("mousedown", onDown);
+    c.addEventListener("touchstart", onDown, {passive:true});
+    c.addEventListener("mouseup", onUp);
+    c.addEventListener("touchend", onUp);
     c.addEventListener("mouseleave", onLeave);
+    c._setTipData = (d)=>{ tipData = d; };
   }
+  c._setTipData && c._setTipData(pts);
 }
+
 function drawMeasChart(){
   const c = document.getElementById("measChart");
   const ctx = c.getContext("2d");
-  const m = Store.get("measurements_log").slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const m = Store.get("measurements_log").slice(-12).sort((a,b)=>a.date.localeCompare(b.date));
   ctx.clearRect(0,0,c.width,c.height);
   if(!m.length){ ctx.fillStyle="#8b94a3"; ctx.font="13px sans-serif"; ctx.textAlign="center"; ctx.fillText("Нет замеров",c.width/2,c.height/2); return; }
   const all=[]; m.forEach(x=>{ if(x.waist_cm)all.push(x.waist_cm); if(x.hips_cm)all.push(x.hips_cm); });
   if(!all.length) return;
-  let min=Math.min(...all),max=Math.max(...all); if(min===max){min-=1;max+=1;}
+  let min=Math.min(...all),max=Math.max(...all); if(min===max){min-=1;max+=1;} else {const r=max-min;min-=r*0.1;max+=r*0.1;}
   const pad=18,W=c.width-pad*2,H=c.height-pad*2;
   const x=i=>pad+(m.length===1?W/2:i/(m.length-1)*W);
   const y=v=>pad+(1-(v-min)/(max-min))*H;
+  ctx.strokeStyle="#272d38"; ctx.lineWidth=1;
+  for(let g=0;g<=4;g++){ const yy=pad+g/4*H; ctx.beginPath(); ctx.moveTo(pad,yy); ctx.lineTo(pad+W,yy); ctx.stroke(); }
   function lineSeries(key,color){
     ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath();
     let started=false;
@@ -1469,28 +1713,214 @@ function drawMeasChart(){
   }
   lineSeries("waist_cm","#6ee7b7");
   lineSeries("hips_cm","#9f7aea");
+  // ОСЬ X
+  const ticks = Math.min(4, m.length);
+  let axisHTML = "";
+  for(let i=0;i<ticks;i++){
+    const idx = Math.round((ticks-1===0?0:i/(ticks-1)*(m.length-1)));
+    const d = m[idx].date;
+    axisHTML += `<span>${d.slice(5).replace("-",".")}</span>`;
+  }
+  document.getElementById("measAxis").innerHTML = axisHTML;
+  // легенда сверху
   ctx.fillStyle="#8b94a3"; ctx.font="11px sans-serif"; ctx.textAlign="left";
-  ctx.fillText("талия",pad,14); ctx.textAlign="right"; ctx.fillText("бёдра",c.width-pad,14);
+  ctx.fillText("талия",pad,14);
+  ctx.fillText("бёдра",pad+60,14);
+  // цветные точки рядом с подписями
+  ctx.fillStyle="#6ee7b7"; ctx.beginPath(); ctx.arc(pad-6,10,3,0,7); ctx.fill();
+  ctx.fillStyle="#9f7aea"; ctx.beginPath(); ctx.arc(pad+54,10,3,0,7); ctx.fill();
 }
+
+function renderMeasKPI(){
+  const m = Store.get("measurements_log").slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const kpiEl = document.getElementById("measKPI");
+  if(m.length<2){ kpiEl.innerHTML = `<div class="kpi-tile" style="grid-column:1/-1"><div class="v" style="font-size:16px">${m.length===1?'Первая запись добавлена':'Нет данных'}</div><div class="l">добавьте ещё записи, чтобы увидеть динамику</div></div>`; return; }
+  const first = m[0], last = m[m.length-1];
+  const dW = (first.waist_cm!=null && last.waist_cm!=null) ? +(last.waist_cm-first.waist_cm).toFixed(1) : null;
+  const dH = (first.hips_cm!=null && last.hips_cm!=null) ? +(last.hips_cm-first.hips_cm).toFixed(1) : null;
+  const fmt = (v,suf)=> v==null? "—" : (v>0?"+"+v:v)+(suf||"");
+  const cls = (v)=> v==null||v===0 ? "delta-flat" : (v<0?"delta-down":"delta-up");
+  kpiEl.innerHTML = `
+    <div class="kpi-tile"><div class="v" style="font-size:18px">${last.waist_cm||"—"}</div><div class="l">талия сейчас, см</div></div>
+    <div class="kpi-tile"><div class="v" style="font-size:18px">${last.hips_cm||"—"}</div><div class="l">бёдра сейчас, см</div></div>
+    <div class="kpi-tile"><div class="v ${cls(dW)}" style="font-size:18px">${fmt(dW)}</div><div class="l">Δ талии, см</div></div>
+    <div class="kpi-tile"><div class="v ${cls(dH)}" style="font-size:18px">${fmt(dH)}</div><div class="l">Δ бёдер, см</div></div>`;
+}
+
+function renderWeekCalendar(prog){
+  const calEl = document.getElementById("progStreak");
+  const legendEl = document.getElementById("streakLegend");
+  const tomorrowEl = document.getElementById("streakTomorrow");
+  const completed = prog.completed_days||[];
+  const wl = Store.get("workout_log");
+  function workoutForDate(ds){
+    if(wl.some(w=>w.date.startsWith(ds))) return "done";
+    const d = new Date(ds+"T00:00:00");
+    const dow = d.getDay();
+    const sched = WEEK_SCHEDULE[dow];
+    if(sched==="rest") return "rest";
+    if(sched==="active_rest"||sched==="walk") return "walk";
+    // запланирована тренировка, но не сделана — активная ячейка
+    return "active";
+  }
+
+  // отображаем 4 неданные недели: текущая + 3 предыдущие
+  const dayNames = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+  // 28 ячеек: с -27 дня до сегодня
+  // но удобнее: 4 строки по 7 дней, каждая строка = неделя Пн-Вс
+  // найти понедельник текущей недели
+  const today = new Date();
+  const todayDow = (today.getDay()||7)-1; // 0=Пн
+  const monday = new Date(today); monday.setDate(today.getDate()-todayDow);
+
+  let html = '<div class="week-cal">';
+  // заголовки
+  html += '<div></div>'; // пустое под имена дней
+  for(let w=3; w>=0; w--){
+    html += '<div class="head">Нед '+(4-w)+'</div>';
+  }
+  // строки по дням
+  for(let d=0; d<7; d++){
+    html += `<div class="day-name">${dayNames[d]}</div>`;
+    for(let w=3; w>=0; w--){
+      const date = new Date(monday);
+      date.setDate(monday.getDate() - w*7 + d);
+      const ds = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+      const isFuture = date > today && date.toDateString() !== today.toDateString();
+      let cls = workoutForDate(ds);
+      if(isFuture) cls = "empty";
+      const dayNum = date.getDate();
+      html += `<div class="day-cell ${cls}" data-date="${ds}" title="${ds}">${dayNum}</div>`;
+    }
+  }
+  html += '</div>';
+  calEl.innerHTML = html;
+
+  legendEl.innerHTML = `
+    <span><span class="sw" style="background:var(--acc)"></span>тренировка</span>
+    <span><span class="sw" style="background:#3a4d6e"></span>план, не сделано</span>
+    <span><span class="sw" style="background:#2d4a3f"></span>прогулка/активный</span>
+    <span><span class="sw" style="background:#2a2030"></span>отдых</span>`;
+
+  // тап → popover со сводкой дня
+  calEl.querySelectorAll(".day-cell").forEach(cell=>{
+    cell.onclick = ()=>{
+      const ds = cell.dataset.date;
+      showDayPopover(ds, workoutForDate(ds));
+    };
+  });
+
+  // прогноз на завтра
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+  const tomorrowDow = tomorrow.getDay();
+  const tomorrowSched = WEEK_SCHEDULE[tomorrowDow];
+  let tomorrowText = "";
+  if(PROGRAM_DATA[tomorrowSched]){
+    const info = PROGRAM_DATA[tomorrowSched];
+    tomorrowText = `Завтра — Тренировка ${info.id}: ${info.title} (${info.duration})`;
+  } else if(tomorrowSched==="active_rest") tomorrowText = "Завтра — активный отдых: прогулка 40–60 мин + растяжка 15 мин.";
+  else if(tomorrowSched==="walk") tomorrowText = "Завтра — прогулка 30–60 мин.";
+  else tomorrowText = "Завтра — день отдыха.";
+  tomorrowEl.textContent = tomorrowText;
+}
+
+function showDayPopover(ds, type){
+  const pop = document.getElementById("dayPopover");
+  const body = document.getElementById("popoverBody");
+  const d = new Date(ds+"T00:00:00");
+  const dow = d.getDay();
+  const dayLabel = ["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"][dow];
+  const sched = WEEK_SCHEDULE[dow];
+  const workout = Store.get("workout_log").find(w=>w.date.startsWith(ds));
+  const diary = Store.get("diary_entries").filter(e=>e.date.startsWith(ds));
+  let schedText;
+  if(PROGRAM_DATA[sched]) schedText = `Тренировка ${PROGRAM_DATA[sched].id}: ${PROGRAM_DATA[sched].title}`;
+  else if(sched==="active_rest") schedText = "Активный отдых: прогулка + растяжка";
+  else if(sched==="walk") schedText = "Прогулка";
+  else schedText = "День отдыха";
+
+  const typeLabel = {done:"Тренировка выполнена",active:"Запланирована, не записана",walk:"Прогулка / активный отдых",rest:"День отдыха",empty:"Будущее / нет данных"}[type]||"—";
+  let html = `<h2 style="margin-bottom:4px">${dayLabel}, ${ds.slice(5)}</h2>
+    <div class="muted small">${schedText}</div>
+    <div class="tag ${type==='done'?'ok':''}">${typeLabel}</div>`;
+  if(workout){
+    html += `<div style="margin-top:10px"><div class="small"><strong>RPE:</strong> ${workout.rpe||"—"}/10</div>`;
+    if(workout.pain_flag) html += `<div class="small warn">Боль в суставе отмечена</div>`;
+    if(workout.notes) html += `<div class="small muted">${escapeHtml(workout.notes)}</div>`;
+    html += `</div>`;
+  }
+  if(diary.length){
+    html += `<div style="margin-top:10px"><h3 style="margin:0 0 4px">Дневник (${diary.length})</h3>`;
+    diary.forEach(e=>{
+      const f=(e.parsed && e.parsed.food_estimate)||{};
+      html += `<div class="small">${f.calories||"—"} ккал · ${f.protein_g||"—"} г белка · ${escapeHtml((e.parsed && e.parsed.notes_summary)||"")}</div>`;
+    });
+    html += `</div>`;
+  }
+  html += `<div class="row" style="margin-top:14px"><button class="ghost" id="popoverClose">Закрыть</button></div>`;
+  body.innerHTML = html;
+  pop.classList.add("active");
+  document.getElementById("popoverClose").onclick=()=>pop.classList.remove("active");
+  pop.onclick=(e)=>{ if(e.target===pop) pop.classList.remove("active"); };
+}
+
+// обработчики прогресса
 document.getElementById("weightAdd").onclick=()=>{
   const v = parseFloat(document.getElementById("weightInput").value);
-  if(!v||v<30||v>250){ toast("Введите вес"); return; }
+  if(!v || v<30 || v>250){ toast("Введите реальное значение (30–250 кг)"); return; }
+  // предупреждение при отклонении >10 кг от последнего
+  const wl = Store.get("weight_log").slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const last = wl[wl.length-1];
+  if(last && Math.abs(v - last.weight_kg) > 10){
+    if(!confirm(`Сильно отличается от последнего (${last.weight_kg} кг). Сохранить ${v} кг?`)) return;
+  }
   const today = todayStr();
-  const wl=Store.get("weight_log");
-  const idx = wl.findIndex(x=>x.date===today);
-  if(idx>=0){ wl[idx].weight_kg=v; toast("Вес обновлён за сегодня"); }
-  else { wl.push({date:today,weight_kg:v}); toast("Вес добавлен"); }
-  Store.set("weight_log", wl);
+  const arr = Store.get("weight_log");
+  const idx = arr.findIndex(x=>x.date===today);
+  if(idx>=0){ arr[idx].weight_kg=v; toast("Вес обновлён за сегодня"); }
+  else { arr.push({date:today,weight_kg:v}); toast("Вес добавлен"); }
+  Store.set("weight_log", arr);
   document.getElementById("weightInput").value="";
+  updateWeightInputStatus();
   renderProgress();
+};
+document.getElementById("weightInput").addEventListener("input", updateWeightInputStatus);
+function updateWeightInputStatus(){
+  const v = parseFloat(document.getElementById("weightInput").value);
+  const st = document.getElementById("weightInputStatus");
+  const today = todayStr();
+  const arr = Store.get("weight_log");
+  const todayRec = arr.find(x=>x.date===today);
+  if(!v || isNaN(v)){ st.textContent = todayRec? `На сегодня уже есть запись ${todayRec.weight_kg} кг — перезапишу.` : ""; return; }
+  if(todayRec) st.textContent = `Перезапишу «сегодня» (было ${todayRec.weight_kg} кг).`;
+  else st.textContent = "Добавлю новую запись.";
+}
+document.getElementById("weightPeriod").addEventListener("click",(e)=>{
+  if(e.target.tagName!=="BUTTON") return;
+  document.querySelectorAll("#weightPeriod button").forEach(b=>b.classList.remove("active"));
+  e.target.classList.add("active");
+  const p = e.target.dataset.period;
+  ProgressUI.weightPeriod = (p==="all"?"all":parseInt(p,10));
+  drawWeightChart(ProgressUI.weightPeriod);
+});
+document.getElementById("measAddFirst").onclick=()=>{
+  document.getElementById("measEmpty").classList.add("hidden");
+  document.getElementById("measForm").classList.remove("hidden");
 };
 document.getElementById("measAdd").onclick=()=>{
   const w=parseFloat(document.getElementById("waistInput").value);
   const h=parseFloat(document.getElementById("hipsInput").value);
-  if(!w&&!h){ toast("Введите замер"); return; }
-  const m=Store.get("measurements_log"); m.push({date:todayStr(),waist_cm:w||null,hips_cm:h||null}); Store.set("measurements_log",m);
+  if(!w && !h){ toast("Введите хотя бы один замер"); return; }
+  if(w && (w<40 || w>200)){ toast("Талия должна быть 40–200 см"); return; }
+  if(h && (h<40 || h>200)){ toast("Бёдра должны быть 40–200 см"); return; }
+  const arr=Store.get("measurements_log");
+  const today = todayStr();
+  const idx = arr.findIndex(x=>x.date===today);
+  if(idx>=0){ arr[idx].waist_cm = w||arr[idx].waist_cm; arr[idx].hips_cm = h||arr[idx].hips_cm; toast("Замер обновлён за сегодня"); }
+  else { arr.push({date:today,waist_cm:w||null,hips_cm:h||null}); toast("Замер добавлен"); }
+  Store.set("measurements_log",arr);
   document.getElementById("waistInput").value=""; document.getElementById("hipsInput").value="";
-  renderProgress(); toast("Замер добавлен");
+  renderProgress();
 };
 
 /* ================== SETTINGS ================== */
