@@ -18,6 +18,13 @@
   --acc:#6ee7b7; --acc2:#9f7aea; --warn:#f59e0b; --bad:#ef4444; --border:#272d38;
   --radius:14px;
 }
+:root.light{
+  --bg:#f7f8fa; --bg2:#ffffff; --bg3:#eef0f4; --fg:#161a21; --muted:#5b6473;
+  --border:#dde1e8; --acc:#0ea873; --acc2:#7c4fe0; --warn:#d97706; --bad:#dc2626;
+}
+:root.light body{background:var(--bg)}
+:root.light .tabs button.active{color:var(--acc)}
+:root.light #player{background:var(--bg)}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{padding-bottom:72px;max-width:680px;margin:0 auto;min-height:100vh}
@@ -73,6 +80,16 @@ label{display:block;margin:12px 0 4px;color:var(--muted);font-size:14px}
 .precount.active{display:flex}
 .precount .num{font-size:140px;font-weight:700;color:var(--acc)}
 .precount .label{color:var(--muted)}
+.chart-tip{position:absolute;background:var(--bg3);border:1px solid var(--border);padding:6px 10px;border-radius:8px;font-size:12px;pointer-events:none;z-index:5;transform:translate(-50%,-110%);white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.checklist{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.checklist label{display:flex;align-items:center;gap:10px;margin:0;font-size:16px;color:var(--fg);cursor:pointer}
+.checklist input[type=checkbox]{width:22px;height:22px;accent-color:var(--acc)}
+.meal-templates{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.meal-templates .chip{padding:6px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:999px;font-size:13px;cursor:pointer}
+.meal-templates .chip:hover{border-color:var(--acc);color:var(--acc)}
+.meal-templates .chip .x{margin-left:6px;color:var(--muted);font-size:11px}
+.theme-toggle{display:flex;align-items:center;gap:8px}
+.theme-toggle select{flex:0 0 auto;width:auto}
 </style>
 </head>
 <body>
@@ -93,6 +110,7 @@ label{display:block;margin:12px 0 4px;color:var(--muted);font-size:14px}
   <div id="todayVacuum" class="card hidden"></div>
   <div id="todayStreak" class="card"></div>
   <div id="todayAdvice" class="card"></div>
+  <div id="todayRecap" class="card hidden"></div>
 </main>
 
 <!-- DIARY -->
@@ -106,6 +124,13 @@ label{display:block;margin:12px 0 4px;color:var(--muted);font-size:14px}
       <button id="diaryManual" class="ghost">Ручной ввод</button>
     </div>
     <div id="diaryStatus" class="small muted" style="margin-top:8px"></div>
+    <div style="margin-top:12px">
+      <div class="row" style="align-items:center;margin-bottom:6px">
+        <h3 style="margin:0;flex:1">Шаблоны еды</h3>
+        <button id="tmplAdd" class="ghost" style="font-size:13px;padding:6px 10px">+ шаблон</button>
+      </div>
+      <div class="meal-templates" id="mealTemplates"></div>
+    </div>
   </div>
   <div id="diaryForm" class="card hidden"></div>
   <div>
@@ -187,12 +212,27 @@ label{display:block;margin:12px 0 4px;color:var(--muted);font-size:14px}
     <h2>Заметка плана</h2>
     <div class="small">Упоминаются проблемы с сосудами в теле — перед стартом интенсивного кардио/бокса свериться с врачом о допустимой нагрузке. При тяжести в ногах, долго не падающем пульсе — снижать интенсивность. Боль в суставе (не мышечная) — упражнение сразу заменять на щадящий вариант.</div>
   </div>
+  <div class="card">
+    <h2>Интерфейс</h2>
+    <label>Тема</label>
+    <select id="pTheme">
+      <option value="dark">Тёмная</option>
+      <option value="light">Светлая</option>
+      <option value="system">Системная</option>
+    </select>
+  </div>
+  <div class="card">
+    <h2>Напоминания</h2>
+    <div class="small muted" style="margin-bottom:10px">Локальные уведомления работают, пока приложение открыто на устройстве. Это не «разбудит» телефон в 9:00 само по себе — используйте и системный будильник как запас.</div>
+    <div id="reminderList"></div>
+    <button id="reminderAdd" class="ghost" style="margin-top:10px">+ напоминание</button>
+  </div>
   <div id="devReset" class="card hidden">
     <h2 style="color:var(--bad)">Dev</h2>
     <button id="resetProgram" class="danger">Сбросить program_state</button>
     <button id="clearAll" class="ghost" style="margin-top:6px">Стереть ВСЕ данные</button>
   </div>
-  <div class="small muted" style="text-align:center;padding:8px" id="ver">v0.1</div>
+  <div class="small muted" style="text-align:center;padding:8px" id="ver">v0.2</div>
 </main>
 
 <!-- PLAYER -->
@@ -241,16 +281,19 @@ label{display:block;margin:12px 0 4px;color:var(--muted);font-size:14px}
 "use strict";
 
 /* ================== STORAGE ================== */
-const KEYS = ["profile","program_state","workout_log","weight_log","measurements_log","diary_entries","advice_cache","daily_log"];
+const KEYS = ["profile","program_state","workout_log","weight_log","measurements_log","diary_entries","advice_cache","daily_log","meal_templates","reminders","weekly_recap_cache"];
 const DEFAULTS = {
-  profile:{ height_cm:180, age:null, weight_start_kg:63, activity_multiplier:1.4, deficit_kcal:200, deepseek_api_key:"", vacuum_streak:0, play_precount:true },
+  profile:{ height_cm:180, age:null, weight_start_kg:63, activity_multiplier:1.4, deficit_kcal:200, deepseek_api_key:"", vacuum_streak:0, play_precount:true, theme:"dark" },
   program_state:{ current_week:1, week_start_date:null, tempo_unlocked:false, resistance_unlocked:false, boxing_tier:0, boxing_recovery_pass_streak:0, pain_flag_streak:0, pain_flags_this_week:0, completed_days:[] },
   workout_log:[],
   weight_log:[],
   measurements_log:[],
   diary_entries:[],
   advice_cache:{ date:null, text:null },
-  daily_log:[]
+  daily_log:[],
+  meal_templates:[],
+  reminders:[],
+  weekly_recap_cache:{ week:null, text:null }
 };
 const Store = {
   get(k){
@@ -591,6 +634,153 @@ function vacuumStreak(){
   return count;
 }
 
+/* ================== THEME ================== */
+function applyTheme(){
+  const p = Store.get("profile");
+  let theme = p.theme || "dark";
+  if(theme==="system"){
+    theme = (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+  }
+  document.documentElement.classList.toggle("light", theme==="light");
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute("content", theme==="light" ? "#f7f8fa" : "#0f1115");
+}
+
+/* ================== MEAL TEMPLATES ================== */
+const MealTemplates = {
+  list(){ return Store.get("meal_templates"); },
+  render(){
+    const c = document.getElementById("mealTemplates");
+    const list = MealTemplates.list();
+    if(!list.length){ c.innerHTML = '<span class="muted small">нет шаблонов</span>'; return; }
+    c.innerHTML = list.map(t=>`<div class="chip" data-id="${t.id}">${escapeHtml(t.title)}<span class="x" data-del="${t.id}">✕</span></div>`).join("");
+    c.querySelectorAll(".chip").forEach(chip=>{
+      chip.onclick=(e)=>{
+        if(e.target.dataset.del){ MealTemplates.del(e.target.dataset.del); return; }
+        const t = list.find(x=>x.id===chip.dataset.id);
+        if(t){
+          const ta = document.getElementById("diaryText");
+          ta.value = ta.value ? (ta.value.trim()+"\n"+t.text) : t.text;
+          ta.focus();
+        }
+      };
+    });
+  },
+  add(){
+    const title = prompt("Название шаблона:", "Овсянка с бананом");
+    if(!title) return;
+    const text = prompt("Текст (как опишете в дневнике):", "овсянка на воде, банан, ломтик сыра, кофе");
+    if(!text) return;
+    const arr = MealTemplates.list();
+    arr.push({id:uid(), title, text});
+    Store.set("meal_templates", arr);
+    MealTemplates.render();
+  },
+  del(id){
+    const arr = MealTemplates.list().filter(x=>x.id!==id);
+    Store.set("meal_templates", arr);
+    MealTemplates.render();
+  }
+};
+
+/* ================== REMINDERS ================== */
+const Reminders = {
+  list(){ return Store.get("reminders"); },
+  render(){
+    const c = document.getElementById("reminderList");
+    const arr = Reminders.list();
+    if(!arr.length){ c.innerHTML = '<div class="muted small">нет напоминаний</div>'; return; }
+    c.innerHTML = arr.map(r=>`
+      <div class="row" style="align-items:center;margin:6px 0" data-id="${r.id}">
+        <input type="time" value="${r.time}" data-time="${r.id}" style="flex:0 0 auto;width:auto">
+        <input type="text" value="${escapeHtml(r.title)}" data-title="${r.id}" placeholder="Заголовок" style="flex:1">
+        <button data-toggle="${r.id}" class="${r.enabled?'primary':'ghost'}" style="padding:8px 10px">${r.enabled?' ✓ ':' вкл '}</button>
+        <button data-del="${r.id}" class="ghost danger" style="padding:8px 10px">✕</button>
+      </div>`).join("");
+    c.querySelectorAll("input,button").forEach(el2=>{
+      el2.onchange = (e)=>{
+        const id = e.target.dataset.time || e.target.dataset.title || e.target.dataset.toggle || e.target.dataset.del;
+        const r = arr.find(x=>x.id===id); if(!r) return;
+        if(e.target.dataset.time) r.time = e.target.value;
+        if(e.target.dataset.title) r.title = e.target.value;
+        if(e.target.dataset.toggle!==undefined) r.enabled = !r.enabled;
+        if(e.target.dataset.del!==undefined){ Store.set("reminders", arr.filter(x=>x.id!==id)); return Reminders.render(); }
+        Store.set("reminders", arr);
+        Reminders.render();
+        Reminders.pushToSW();
+      };
+    });
+  },
+  add(){
+    const arr = Reminders.list();
+    arr.push({id:uid(), time:"09:00", title:"Вакуум живота", enabled:true});
+    Store.set("reminders", arr);
+    Reminders.render();
+    Reminders.pushToSW();
+  },
+  async pushToSW(){
+    if(!("serviceWorker" in navigator) || !navigator.serviceWorker.controller) return;
+    const arr = Reminders.list().filter(r=>r.enabled).map(r=>({id:r.id, time:r.time, title:"Трекер: "+r.title, body:"Не забудьте ✓"}));
+    navigator.serviceWorker.controller.postMessage({type:"REMINDER_CONFIG", config:{times:arr}});
+  }
+};
+
+/* ================== WEEKLY RECAP ================== */
+const Recap = {
+  weekKey(dateStr){
+    const d = new Date(dateStr);
+    const thu = new Date(d); thu.setDate(d.getDate() - (d.getDay()||7) + 1);
+    return `${thu.getFullYear()}-${thu.getMonth()+1}-${thu.getDate()}`;
+  },
+  currentWeekKey(){ return Recap.weekKey(todayStr()); },
+  weekSummary(){
+    const weekStart = daysAgoStr(6);
+    const wl = Store.get("weight_log").filter(w=>w.date>=weekStart).sort((a,b)=>a.date.localeCompare(b.date));
+    const workouts = Store.get("workout_log").filter(w=>w.date>=weekStart);
+    const diary = Store.get("diary_entries").filter(e=>e.date>=weekStart);
+    let kcal=0, prot=0;
+    for(const e of diary){ const f=(e.parsed && e.parsed.food_estimate)||{}; kcal += f.calories||0; prot += f.protein_g||0; }
+    const avgDiary = diary.length? { kcal:Math.round(kcal/diary.length), protein:Math.round(prot/diary.length) } : { kcal:0, protein:0 };
+    const wTrend = Calc.weightTrend7d();
+    let painCount=0;
+    workouts.forEach(w=>{ if(w.pain_flag) painCount++; });
+    return {
+      workoutCount: workouts.length,
+      targetCount: 4,
+      avgKcal: avgDiary.kcal,
+      avgProtein: avgDiary.protein,
+      weightTrend: wTrend,
+      firstWeight: wl.length? wl[0].weight_kg : null,
+      lastWeight: wl.length? wl[wl.length-1].weight_kg : null,
+      painCount
+    };
+  },
+  async generate(){
+    const p = Store.get("profile");
+    if(!p.deepseek_api_key){ toast("Укажите DeepSeek API ключ в настройках"); return; }
+    const s = Recap.weekSummary();
+    const schedText = `${s.workoutCount}/${s.targetCount} тренировок выполнено`;
+    const trendText = s.weightTrend==null? "мало данных" : (s.weightTrend>0?"+"+s.weightTrend:s.weightTrend)+" кг/нед";
+    const dKcal = s.avgKcal? `средн. ${s.avgKcal} ккал/день` : "дневник пуст";
+    const dProt = s.avgProtein? `средн. ${s.avgProtein} г белка/день` : "—";
+    const userMsg = `Сводка за неделю:
+- Тренировки: ${schedText}
+- Pain-flags за неделю: ${s.painCount}
+- Дневник: ${dKcal}, ${dProt}
+- Тренд веса за 7 дней: ${trendText}
+Не пересчитывай цифры, только оформи короткий читаемый рекап на 4-5 предложений: что получилось, что хромает, что попробовать на следующей неделе. Тон тёплый, без давления.`;
+    const sysMsg = "Ты — заботливый помощник по фитнесу. Дай персональный еженедельный рекап на русском языке на основе переданных сводных данных.";
+    try{
+      const txt = await DeepSeek.chatWithRetry(sysMsg, userMsg, p.deepseek_api_key);
+      Store.set("weekly_recap_cache",{week:Recap.currentWeekKey(),text:txt});
+      renderToday();
+      toast("Рекап готов");
+    }catch(e){
+      toast("Не удалось сгенерировать рекап: "+e.message, 4000);
+    }
+  }
+};
+
 /* ================== DEEPSEEK ================== */
 const DeepSeek = {
   async chat(system, user, apiKey, timeoutMs){
@@ -757,6 +947,23 @@ function renderToday(){
       <button id="genAdvice" class="ghost" style="margin-top:8px">Сгенерировать</button>`;
     document.getElementById("genAdvice").onclick=loadAdvice;
   }
+
+  // weekly recap
+  const recapEl = document.getElementById("todayRecap");
+  const recapCache = Store.get("weekly_recap_cache");
+  const isSunday = (new Date()).getDay()===0;
+  if(recapCache.text && recapCache.week===Recap.currentWeekKey()){
+    recapEl.classList.remove("hidden");
+    recapEl.innerHTML = `<h3>Рекап недели</h3><div>${recapCache.text}</div>`;
+  } else if(isSunday || recapCache.week !== Recap.currentWeekKey()){
+    recapEl.classList.remove("hidden");
+    recapEl.innerHTML = `<h3>Рекап недели</h3>
+      <div class="muted small" style="margin-bottom:8px">Сводка тренировок, дневника и веса с коротким советом от DeepSeek.</div>
+      <button id="genRecap" class="primary">Сгенерировать рекап</button>`;
+    document.getElementById("genRecap").onclick=Recap.generate;
+  } else {
+    recapEl.classList.add("hidden");
+  }
 }
 
 async function loadAdvice(){
@@ -785,6 +992,13 @@ let Player = null;
 function openPlayer(workoutId){
   const state = Store.get("program_state");
   const steps = buildSteps(workoutId, state);
+  // чек-лист перед тренировкой — как первый виртуальный шаг
+  steps.unshift({ kind:"checklist", title:"Перед тренировкой", items:[
+    { label:"Вода выпита", note:"стакан за 30-60 мин" },
+    { label:"Поел за 1–2 ч", note:"углеводы + немного белка" },
+    { label:"Вакуум утром", note:"если ещё не сделал — отметь" },
+    { label:"Обувь / коврик", note:"удобная поверхность" }
+  ]});
   Player = { workoutId, steps, index:0, rpe:null, painFlag:false, recoveryAnswer:null, hasBox: workoutHasBoxing(workoutId) };
   const info = PROGRAM_DATA[workoutId];
   document.getElementById("plTitle").textContent = `${info.id} · ${info.title}`;
@@ -854,6 +1068,16 @@ function renderPlayerStep(){
     const c = el(`<div style="text-align:center"><div class="muted small">${escapeHtml(step._label||"Отдых")}</div><h2 style="margin-top:10px">Отдых</h2></div>`);
     body.appendChild(c);
     renderCountdown(body, foot, step.seconds, false, null, ()=>nextStep());
+  }
+  else if(step.kind==="checklist"){
+    body.appendChild(el(`<h2 style="text-align:center">${escapeHtml(step.title||"Чек-лист")}</h2>`));
+    const form = el(`<div class="checklist"></div>`);
+    step.items.forEach((it,i)=>{
+      form.appendChild(el(`<label><input type="checkbox" data-idx="${i}"><span><strong>${escapeHtml(it.label)}</strong>${it.note?`<div class="small muted">${escapeHtml(it.note)}</div>`:""}</span></label>`));
+    });
+    body.appendChild(form);
+    const b = el(`<button class="primary">Начать тренировку</button>`);
+    b.onclick=nextStep; foot.appendChild(b);
   }
   else if(step.kind==="reps"){
     const note = step._supersetTotal?`<div class="muted small">Круг ${step._supersetRound}/${step._supersetTotal}</div>`:"";
@@ -1024,6 +1248,7 @@ document.getElementById("plExit").onclick=()=>{ if(confirm("Выйти из тр
 let DiaryForm = null;
 function renderDiary(){
   renderDiaryLists();
+  MealTemplates.render();
 }
 function renderDiaryLists(){
   const list = Store.get("diary_entries").slice().reverse();
@@ -1127,6 +1352,7 @@ document.getElementById("diaryParse").onclick=async ()=>{
   }
 };
 document.getElementById("diaryManual").onclick=()=>showDiaryForm(null, true);
+document.getElementById("tmplAdd").onclick=()=>MealTemplates.add();
 
 /* ================== PROGRESS ================== */
 function renderProgress(){
@@ -1175,29 +1401,53 @@ function drawWeightChart(){
   const pad=18, W=c.width-pad*2, H=c.height-pad*2;
   const x=i => pad + (wl.length===1?W/2 : i/(wl.length-1)*W);
   const y=v => pad + (1-(v-min)/(max-min))*H;
-  // grid
   ctx.strokeStyle="#272d38"; ctx.lineWidth=1;
   for(let g=0;g<=4;g++){ const yy=pad+g/4*H; ctx.beginPath(); ctx.moveTo(pad,yy); ctx.lineTo(pad+W,yy); ctx.stroke(); }
-  // 7-day moving avg
   const ma = [];
   for(let i=0;i<wl.length;i++){
     const start=Math.max(0,i-6);
     const slice=vals.slice(start,i+1);
     ma.push(slice.reduce((s,x)=>s+x,0)/slice.length);
   }
-  // line
   ctx.strokeStyle="#6ee7b7"; ctx.lineWidth=2; ctx.beginPath();
   ma.forEach((v,i)=>{ const X=x(i),Y=y(v); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y); });
   ctx.stroke();
-  // dots
   ctx.fillStyle="#9f7aea";
-  wl.forEach((p,i)=>{ ctx.beginPath(); ctx.arc(x(i),y(p.weight_kg),3,0,7); ctx.fill(); });
-  // labels
+  const pts = wl.map((p,i)=>({x:x(i),y:y(p.weight_kg),date:p.date,val:p.weight_kg}));
+  pts.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,4,0,7); ctx.fill(); });
   ctx.fillStyle="#8b94a3"; ctx.font="11px sans-serif"; ctx.textAlign="left";
   const last = wl[wl.length-1];
   const first = wl[0];
   const trend = Calc.weightTrend7d();
   document.getElementById("weightStats").textContent = `текущий: ${last.weight_kg} кг · старт: ${first.weight_kg} кг · тренд 7д: ${trend==null?"мало данных":(trend>0?"+":"")+trend+" кг/нед"} · записей: ${wl.length}`;
+  // tooltip overlay (создаём один раз поверх canvas)
+  let tip = document.getElementById("weightTip");
+  if(!tip){
+    tip = document.createElement("div");
+    tip.id = "weightTip"; tip.className="chart-tip"; tip.style.display="none";
+    c.parentElement.style.position = "relative";
+    c.parentElement.appendChild(tip);
+    const onMove = (ev)=>{
+      const rect = c.getBoundingClientRect();
+      const px = (ev.touches? ev.touches[0].clientX : ev.clientX) - rect.left;
+      const py = (ev.touches? ev.touches[0].clientY : ev.clientY) - rect.top;
+      const scaleX = c.width / rect.width;
+      const cx = px * scaleX;
+      let nearest=null, nd=Infinity;
+      pts.forEach(p=>{ const d=Math.abs(p.x-cx); if(d<nd){nd=d; nearest=p;} });
+      if(nearest && nd < 30){
+        const dispX = (nearest.x/scaleX);
+        tip.style.display="block";
+        tip.style.left = dispX + "px";
+        tip.style.top = ((nearest.y/(c.height/rect.height))) + "px";
+        tip.textContent = `${nearest.date} · ${nearest.val} кг`;
+      } else { tip.style.display="none"; }
+    };
+    const onLeave = ()=>{ tip.style.display="none"; };
+    c.addEventListener("mousemove", onMove);
+    c.addEventListener("touchstart", onMove, {passive:true});
+    c.addEventListener("mouseleave", onLeave);
+  }
 }
 function drawMeasChart(){
   const c = document.getElementById("measChart");
@@ -1253,6 +1503,8 @@ function renderSettings(){
   document.getElementById("pDef").value = String(p.deficit_kcal||0);
   document.getElementById("pKey").value = p.deepseek_api_key||"";
   document.getElementById("pPrecount").checked = p.play_precount!==false;
+  document.getElementById("pTheme").value = p.theme||"dark";
+  Reminders.render();
   updateProfileCalc();
 }
 function updateProfileCalc(){
@@ -1269,6 +1521,7 @@ function readProfileForm(){
   p.deficit_kcal = parseFloat(document.getElementById("pDef").value)||0;
   p.deepseek_api_key = document.getElementById("pKey").value.trim()||p.deepseek_api_key;
   p.play_precount = document.getElementById("pPrecount").checked;
+  p.theme = document.getElementById("pTheme").value;
   return p;
 }
 document.getElementById("saveProfile").onclick=()=>{
@@ -1282,10 +1535,13 @@ document.getElementById("saveProfile").onclick=()=>{
     if(!p.weight_start_kg) p.weight_start_kg = wIn;
   }
   Store.set("profile", p);
+  applyTheme();
   toast("Профиль сохранён");
   updateProfileCalc();
 };
-["pHeight","pAge","pWeight","pAct","pDef"].forEach(id=>{ document.getElementById(id).addEventListener("input",updateProfileCalc); });
+["pHeight","pAge","pWeight","pAct","pDef","pTheme"].forEach(id=>{ document.getElementById(id).addEventListener("input",updateProfileCalc); });
+document.getElementById("pTheme").addEventListener("change", applyTheme);
+document.getElementById("reminderAdd").onclick=()=>Reminders.add();
 
 document.getElementById("exportBtn").onclick=()=>{
   const data = Store.raw();
@@ -1382,9 +1638,21 @@ renderScreen("today");
 })();
 
 // Service Worker для offline/PWA
+applyTheme();
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{
-    navigator.serviceWorker.register("sw.js").catch(()=>{ /* silent */ });
+    navigator.serviceWorker.register("sw.js").then(reg=>{
+      // как только SW активен — отправляем ему конфиг напоминаний
+      if(navigator.serviceWorker.controller){ Reminders.pushToSW(); }
+      else { navigator.serviceWorker.addEventListener("controllerchange", ()=>Reminders.pushToSW()); }
+    }).catch(()=>{ /* silent */ });
+  });
+}
+// следим за системной темой, если выбрано "system"
+if(window.matchMedia){
+  window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", ()=>{
+    const p = Store.get("profile");
+    if((p.theme||"dark")==="system") applyTheme();
   });
 }
 </script>

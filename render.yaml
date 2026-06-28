@@ -1,23 +1,13 @@
 services:
   - type: web
     name: tracker
-    env: static
-    buildCommand: ""
-    staticPublishPath: .
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
-      - path: /sw.js
-        name: Cache-Control
-        value: no-cache
-      - path: /index.html
-        name: Cache-Control
-        value: no-cache
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "node server.js"
+    healthCheckPath: /
+    autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: 18.0.0
